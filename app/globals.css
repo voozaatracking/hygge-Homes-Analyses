@@ -1,0 +1,71 @@
+@import "tailwindcss";
+
+/*
+ * Hygge Homes Farbwelt: warmes Creme, helles Beige, Greige/Taupe,
+ * dunkles warmes Grau statt Schwarz. Statusfarben gedämpft
+ * (Salbeigrün, Ockertaupe, Ziegelrosé) und nie dominant.
+ */
+:root {
+  --cream: #f4efe6;
+  --card: #fbf8f2;
+  --card-soft: #f0eadd;
+  --greige: #e6dfd1;
+  --line: #e0d8c8;
+  --ink: #3b3733;
+  --muted: #75705f;
+  --taupe: #8c8377;
+  --sage: #6f7f67;
+  --sage-soft: #ebefe7;
+  --ochre: #96794a;
+  --ochre-soft: #f3ecdc;
+  --brick: #a05f54;
+  --brick-soft: #f4e6e2;
+}
+
+@theme inline {
+  --color-cream: var(--cream);
+  --color-card: var(--card);
+  --color-card-soft: var(--card-soft);
+  --color-greige: var(--greige);
+  --color-line: var(--line);
+  --color-ink: var(--ink);
+  --color-muted: var(--muted);
+  --color-taupe: var(--taupe);
+  --color-sage: var(--sage);
+  --color-sage-soft: var(--sage-soft);
+  --color-ochre: var(--ochre);
+  --color-ochre-soft: var(--ochre-soft);
+  --color-brick: var(--brick);
+  --color-brick-soft: var(--brick-soft);
+  --font-display: var(--font-oswald), "Arial Narrow", sans-serif;
+  --font-sans: var(--font-jost), "Segoe UI", sans-serif;
+}
+
+body {
+  background: var(--cream);
+  color: var(--ink);
+  font-family: var(--font-jost), "Segoe UI", sans-serif;
+}
+
+/* Sichtbare Fokuszustände für Tastaturnavigation */
+:focus-visible {
+  outline: 2px solid var(--taupe);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+/* Bewegung respektvoll reduzieren */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* Zahlen in Kennwerten gleichmäßig ausrichten */
+.tabular {
+  font-variant-numeric: tabular-nums;
+}
