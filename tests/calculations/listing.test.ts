@@ -85,12 +85,9 @@ describe("KW-Modell: Reinigungskosten-Fallback", () => {
       amount: 100,
       source: "manual",
     });
-    expect(
-      analysis.warnings.some((w) => w.includes("Durchschnitt"))
-    ).toBe(true);
   });
 
-  it("rechnet ohne jegliche Reinigungskosten mit 0 und warnt", () => {
+  it("rechnet ohne jegliche Reinigungskosten mit 0", () => {
     const derived = deriveListing(listingWithPrices("A", 1000), {
       occupancyRate: 0.5,
       changesPerWeek: 2,
@@ -98,9 +95,6 @@ describe("KW-Modell: Reinigungskosten-Fallback", () => {
     });
     expect(derived.cleaningUsed).toBeNull();
     expect(derived.netListedYear).toBe(52_000);
-    expect(
-      derived.warnings.some((w) => w.includes("ohne Reinigungskosten"))
-    ).toBe(true);
   });
 });
 
@@ -115,9 +109,8 @@ describe("KW-Modell: fehlende und unvollständige Eingaben", () => {
     expect(derived.annualRevenue).toBeNull();
     expect(derived.monthlyRevenue).toBeNull();
     expect(derived.revenuePerNight).toBeCloseTo(41_600 / 364, 6);
-    expect(
-      analysis.warnings.some((w) => w.includes("Auslastungsquote"))
-    ).toBe(true);
+    // Bewusst keine Warnung mehr: Das Umsatzmodell ist derzeit ausgeblendet.
+    expect(analysis.warnings).toHaveLength(0);
   });
 
   it("zählt fehlende Kalenderwochen als 0 und warnt über die Lücken", () => {
@@ -145,13 +138,12 @@ describe("KW-Modell: fehlende und unvollständige Eingaben", () => {
     expect(derived.revenuePerNight).toBeNull();
   });
 
-  it("warnt, wenn die Reinigungskosten die Wochenpreise übersteigen", () => {
+  it("berechnet auch negative Basiswerte ohne Absturz", () => {
     const derived = deriveListing(
       listingWithPrices("Teuer geputzt", 10, { cleaningCost: 100 }),
       { occupancyRate: 0.5, changesPerWeek: 2, cleaningFallback: null }
     );
     expect(derived.netListedYear).toBeLessThan(0);
-    expect(derived.warnings.some((w) => w.includes("übersteigen"))).toBe(true);
   });
 });
 
@@ -168,6 +160,42 @@ describe("KW-Modell: Durchschnitt und Ein-/Ausschluss", () => {
     expect(analysis.aggregate.avgAnnualRevenue).toBeCloseTo(26_000, 6);
     // Die ausgeschlossene Zeile wird trotzdem einzeln berechnet.
     expect(analysis.rows[1].derived.annualRevenue).toBeCloseTo(52_000, 6);
+  });
+});
+
+describe("Preisniveau-Kennzahlen (aktuelle Auswertung)", () => {
+  it("berechnet Ø Wochenpreis, Preisniveau pro Jahr und Preis pro Nacht", () => {
+    const listing = emptyListing("Teiljahr");
+    listing.weeklyPrices[0] = 700;
+    listing.weeklyPrices[1] = 900;
+    const derived = deriveListing(listing, {
+      occupancyRate: null,
+      changesPerWeek: 2,
+      cleaningFallback: null,
+    });
+    expect(derived.avgWeeklyPrice).toBeCloseTo(800, 6);
+    expect(derived.yearPriceLevel).toBe(1_600);
+    expect(derived.pricePerNight).toBeCloseTo(800 / 7, 6);
+  });
+
+  it("liefert für ein leeres Inserat keine Preiskennzahlen", () => {
+    const derived = deriveListing(emptyListing("Leer"), {
+      occupancyRate: null,
+      changesPerWeek: 2,
+      cleaningFallback: null,
+    });
+    expect(derived.avgWeeklyPrice).toBeNull();
+    expect(derived.yearPriceLevel).toBeNull();
+    expect(derived.pricePerNight).toBeNull();
+  });
+
+  it("mittelt das Preisniveau nur über einbezogene Inserate", () => {
+    const a = listingWithPrices("A", 1000);
+    const b = listingWithPrices("B", 2000, { includeInAggregate: false });
+    const analysis = deriveListingAnalysis(locationWith([a, b]));
+    expect(analysis.aggregate.avgWeeklyPrice).toBeCloseTo(1000, 6);
+    expect(analysis.aggregate.avgYearPriceLevel).toBeCloseTo(52_000, 6);
+    expect(analysis.aggregate.avgPricePerNight).toBeCloseTo(1000 / 7, 6);
   });
 });
 
