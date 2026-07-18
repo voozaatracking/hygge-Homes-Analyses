@@ -26,10 +26,9 @@ import {
 import { parseListingWorkbook } from "@/lib/io/listing-excel-import";
 import { WEEKS_PER_YEAR } from "@/lib/config/assumptions";
 import { emptyListing, fillWeeklyPricesRight, newId } from "@/lib/utils";
-import { fmtEur, fmtNum, numberToInput, parseLocaleNumber } from "@/lib/format";
+import { fmtEur, numberToInput, parseLocaleNumber } from "@/lib/format";
 import { MetricsCard } from "@/components/metrics-card";
-import { NumberField } from "@/components/fields";
-import { Button, Card, ConfirmDialog, Notice, SectionTitle, SourceBadge } from "@/components/ui";
+import { Button, Card, ConfirmDialog, Notice, SectionTitle } from "@/components/ui";
 
 const COLORS = {
   sage: "#6f7f67",
@@ -247,10 +246,8 @@ export function ListingSection({
         notes.push(`Stadt in der Datei: ${result.cityName}`);
       }
       if (result.occupancyPct != null && location.occupancyPct == null) {
+        // Wird still mitgespeichert; das Feld ist derzeit ausgeblendet.
         next.occupancyPct = result.occupancyPct;
-        notes.push(
-          `Auslastungsquote ${fmtNum(result.occupancyPct, 1)} % aus dem Dashboard-Blatt übernommen`
-        );
       }
       if (result.skippedRows) {
         notes.push(`${result.skippedRows} unvollständige Zeile(n) übersprungen`);
@@ -267,11 +264,11 @@ export function ListingSection({
   };
 
   const includedRows = analysis.rows.filter(
-    (r) => r.listing.includeInAggregate && r.derived.annualRevenue != null
+    (r) => r.listing.includeInAggregate && r.derived.yearPriceLevel != null
   );
   const chartData = includedRows.map((r) => ({
     name: truncate(r.listing.name || "Ohne Namen"),
-    "Umsatz pro Jahr": r.derived.annualRevenue,
+    "Preisniveau pro Jahr": r.derived.yearPriceLevel,
   }));
 
   const rowWarnings = analysis.rows.flatMap((r) =>
@@ -325,42 +322,6 @@ export function ListingSection({
 
       {open ? (
         <div className="mt-4 space-y-5">
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            <NumberField
-              label="Gästewechsel pro Woche"
-              value={location.changesPerWeek}
-              onChange={(value) =>
-                onChange({ ...location, changesPerWeek: value })
-              }
-              unit="Wechsel"
-              help={`Annahme des KW-Modells: Reinigungen pro Jahr = ${WEEKS_PER_YEAR} Wochen × Wechsel pro Woche. Die bisherige Excel rechnet mit 2 (also 104).`}
-            />
-            <MetricsCard
-              label="Auslastungsquote des Standorts"
-              value={
-                analysis.occupancyRate != null
-                  ? `${fmtNum(analysis.occupancyRate * 100, 1)} %`
-                  : "–"
-              }
-              sub="Aus den Marktdaten oben (z. B. AirDNA); dort änderbar."
-            />
-            <MetricsCard
-              label="Vermietete Tage pro Monat"
-              value={
-                analysis.rentedDaysPerMonth != null
-                  ? fmtNum(analysis.rentedDaysPerMonth, 1)
-                  : "–"
-              }
-              sub="Auslastungsquote × 30 Tage"
-            />
-          </div>
-
-          {analysis.warnings.map((warning) => (
-            <Notice key={warning} kind="warning">
-              {warning}
-            </Notice>
-          ))}
-
           {listings.length === 0 ? (
             <p className="text-sm text-muted">
               Noch keine Inserate erfasst. Über „Inserat hinzufügen“ eine leere
@@ -382,8 +343,6 @@ export function ListingSection({
                     </th>
                     <th className={headerCell}>Bewertung</th>
                     <th className={headerCell}>Personen</th>
-                    <th className={headerCell}>Reinigung €</th>
-                    <th className={headerCell}>Mehrkosten p.P. €</th>
                     {Array.from({ length: WEEKS_PER_YEAR }, (_, i) => (
                       <th key={i} className={headerCell}>
                         KW {i + 1}
@@ -450,26 +409,6 @@ export function ListingSection({
                           }
                           ariaLabel={`Personenzahl des Inserats ${index + 1}`}
                           widthClass="w-16"
-                        />
-                      </td>
-                      <td className={bodyCell}>
-                        <CellNumberInput
-                          value={listing.cleaningCost}
-                          onCommit={(cleaningCost) =>
-                            updateListing({ ...listing, cleaningCost })
-                          }
-                          ariaLabel={`Reinigungskosten des Inserats ${index + 1}`}
-                          widthClass="w-20"
-                        />
-                      </td>
-                      <td className={bodyCell}>
-                        <CellNumberInput
-                          value={listing.extraCostPerPerson}
-                          onCommit={(extraCostPerPerson) =>
-                            updateListing({ ...listing, extraCostPerPerson })
-                          }
-                          ariaLabel={`Mehrkosten pro Person des Inserats ${index + 1}`}
-                          widthClass="w-20"
                         />
                       </td>
                       {listing.weeklyPrices.map((price, week) => (
@@ -562,7 +501,7 @@ function ListingResults({
   chartData,
 }: {
   analysis: ReturnType<typeof deriveListingAnalysis>;
-  chartData: { name: string; "Umsatz pro Jahr": number | null }[];
+  chartData: { name: string; "Preisniveau pro Jahr": number | null }[];
 }) {
   const { aggregate } = analysis;
 
@@ -570,30 +509,25 @@ function ListingResults({
     <div className="space-y-5">
       <div>
         <SectionTitle
-          hint={`Durchschnitt über ${aggregate.count} einbezogene Inserat(e). Formel je Inserat: (Summe der Wochenpreise − Reinigung × ${WEEKS_PER_YEAR} × ${fmtNum(analysis.changesPerWeek, 1)}) × Auslastungsquote.`}
+          hint={`Durchschnitt über ${aggregate.count} einbezogene Inserat(e). Preisniveau pro Jahr = Summe der 52 Wochen-Listenpreise; fehlende Wochen zählen als 0.`}
         >
           Auswertung
         </SectionTitle>
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <MetricsCard
-            label="Umsatz pro Jahr (Mittel)"
-            value={fmtEur(aggregate.avgAnnualRevenue, 0)}
-            sub="Nach Reinigung und Auslastung"
+            label="Ø Wochenpreis (Mittel)"
+            value={fmtEur(aggregate.avgWeeklyPrice, 0)}
+            sub="Über die ausgefüllten Kalenderwochen"
           />
           <MetricsCard
-            label="Umsatz pro Monat (Mittel)"
-            value={fmtEur(aggregate.avgMonthlyRevenue, 0)}
-            sub="Jahresumsatz / 12"
+            label="Preisniveau pro Jahr (Mittel)"
+            value={fmtEur(aggregate.avgYearPriceLevel, 0)}
+            sub="Summe der 52 Wochen-Listenpreise"
           />
           <MetricsCard
-            label="Umsatz pro Nacht (Mittel)"
-            value={fmtEur(aggregate.avgRevenuePerNight)}
-            sub="Basis / 364 Nächte, unabhängig von der Quote"
-          />
-          <MetricsCard
-            label="Reinigungskosten (Mittel)"
-            value={fmtEur(aggregate.avgCleaning)}
-            sub="Pro Gästewechsel"
+            label="Preis pro Nacht (Mittel)"
+            value={fmtEur(aggregate.avgPricePerNight)}
+            sub="Ø Wochenpreis / 7"
           />
         </div>
       </div>
@@ -603,10 +537,9 @@ function ListingResults({
           <thead>
             <tr className="bg-card-soft">
               <th className={headerCell}>Inserat</th>
-              <th className={headerCell}>Umsatz / Jahr</th>
-              <th className={headerCell}>Umsatz / Monat</th>
-              <th className={headerCell}>Umsatz / Nacht</th>
-              <th className={headerCell}>Reinigung verwendet</th>
+              <th className={headerCell}>Ø Wochenpreis</th>
+              <th className={headerCell}>Preisniveau / Jahr</th>
+              <th className={headerCell}>Preis / Nacht</th>
               <th className={headerCell}>KW ausgefüllt</th>
             </tr>
           </thead>
@@ -629,25 +562,13 @@ function ListingResults({
                   ) : null}
                 </td>
                 <td className={`${bodyCell} tabular whitespace-nowrap`}>
-                  {fmtEur(row.derived.annualRevenue, 0)}
+                  {fmtEur(row.derived.avgWeeklyPrice, 0)}
                 </td>
                 <td className={`${bodyCell} tabular whitespace-nowrap`}>
-                  {fmtEur(row.derived.monthlyRevenue, 0)}
+                  {fmtEur(row.derived.yearPriceLevel, 0)}
                 </td>
                 <td className={`${bodyCell} tabular whitespace-nowrap`}>
-                  {fmtEur(row.derived.revenuePerNight)}
-                </td>
-                <td className={`${bodyCell} whitespace-nowrap`}>
-                  {row.derived.cleaningUsed ? (
-                    <span className="inline-flex items-center gap-1.5">
-                      <span className="tabular">
-                        {fmtEur(row.derived.cleaningUsed.amount)}
-                      </span>
-                      <SourceBadge source={row.derived.cleaningUsed.source} />
-                    </span>
-                  ) : (
-                    "–"
-                  )}
+                  {fmtEur(row.derived.pricePerNight)}
                 </td>
                 <td className={`${bodyCell} tabular`}>
                   {row.derived.filledWeeks} / {WEEKS_PER_YEAR}
@@ -661,7 +582,7 @@ function ListingResults({
       {chartData.length > 0 ? (
         <div>
           <h4 className="text-sm text-muted mb-2">
-            Umsatz pro Jahr je Inserat mit Durchschnittslinie
+            Preisniveau pro Jahr je Inserat mit Durchschnittslinie
           </h4>
           <div className="h-64">
             <ResponsiveContainer width="100%" height="100%">
@@ -686,13 +607,13 @@ function ListingResults({
                   }}
                 />
                 <Bar
-                  dataKey="Umsatz pro Jahr"
+                  dataKey="Preisniveau pro Jahr"
                   fill={COLORS.sage}
                   radius={[3, 3, 0, 0]}
                 />
-                {analysis.aggregate.avgAnnualRevenue != null ? (
+                {analysis.aggregate.avgYearPriceLevel != null ? (
                   <ReferenceLine
-                    y={analysis.aggregate.avgAnnualRevenue}
+                    y={analysis.aggregate.avgYearPriceLevel}
                     stroke={COLORS.ochre}
                     strokeDasharray="6 4"
                     label={{
