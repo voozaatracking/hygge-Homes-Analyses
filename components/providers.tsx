@@ -199,43 +199,79 @@ export function AnalysisProvider({ children }: { children: ReactNode }) {
   const cloudEnabledRef = useRef(false);
   /** Zuletzt mit der Cloud abgeglichener Datenstand (Schleifenschutz). */
   const lastSyncedRef = useRef<string | null>(null);
+  /** Nutzerbezogener Schlüssel des Browser-Zwischenspeichers. */
+  const autosaveKeyRef = useRef<string | null>(null);
 
-  // Beim ersten Laden: Zwischenspeicher wiederherstellen, dann Cloud abgleichen.
+  // Beim ersten Laden: Sitzung klären, Zwischenspeicher wiederherstellen,
+  // dann Cloud abgleichen. Der Zwischenspeicher ist pro Nutzer getrennt,
+  // damit auf einem geteilten Rechner keine Daten zwischen Zugängen wandern.
   useEffect(() => {
     if (restoredRef.current) return;
     restoredRef.current = true;
 
-    try {
-      const stored = window.localStorage.getItem(AUTOSAVE_KEY);
-      if (stored) {
-        const parsed = parseAnalysisFile(stored);
-        if (
-          parsed.ok &&
-          parsed.data &&
-          (parsed.data.objects.length > 0 || parsed.data.locations.length > 0)
-        ) {
-          dispatch({
-            type: "restoreAutosave",
-            objects: parsed.data.objects,
-            locations: parsed.data.locations,
-          });
+    const start = async () => {
+      let uid: string | null = null;
+      try {
+        const meResponse = await fetch("/api/me", { cache: "no-store" });
+        if (meResponse.ok) {
+          const me = (await meResponse.json()) as { uid?: string };
+          uid = typeof me.uid === "string" ? me.uid : null;
         }
+      } catch {
+        uid = null;
       }
-    } catch {
-      // localStorage nicht verfügbar (z. B. blockiert): Feature still deaktivieren.
-    }
+
+      if (uid == null) {
+        // Keine Sitzung (z. B. Login-Seite): weder Zwischenspeicher noch Cloud.
+        cloudReadyRef.current = false;
+        setSync({ status: "disabled", lastSavedAt: null, message: null });
+        return;
+      }
+
+      autosaveKeyRef.current = `${AUTOSAVE_KEY}:${uid}`;
+
+      try {
+        const stored = window.localStorage.getItem(autosaveKeyRef.current);
+        if (stored) {
+          const parsed = parseAnalysisFile(stored);
+          if (
+            parsed.ok &&
+            parsed.data &&
+            (parsed.data.objects.length > 0 ||
+              parsed.data.locations.length > 0)
+          ) {
+            dispatch({
+              type: "restoreAutosave",
+              objects: parsed.data.objects,
+              locations: parsed.data.locations,
+            });
+          }
+        }
+      } catch {
+        // localStorage nicht verfügbar (z. B. blockiert): Feature still deaktivieren.
+      }
+
+      await loadFromCloud();
+    };
 
     // Cloud-Abgleich: Vorhandene Cloud-Daten gewinnen beim Laden, damit alle
-    // Geräte mit demselben gemeinsamen Stand starten. Ein lokaler Stand ohne
+    // Geräte des Nutzers mit demselben Stand starten. Ein lokaler Stand ohne
     // Cloud-Daten wird anschließend automatisch hochgeladen.
     const loadFromCloud = async () => {
       try {
         const response = await fetch("/api/data", { cache: "no-store" });
         if (!response.ok) {
+          const body = (await response.json().catch(() => null)) as {
+            error?: string;
+          } | null;
           setSync({
-            status: "error",
+            status: response.status === 401 ? "disabled" : "error",
             lastSavedAt: null,
-            message: "Cloud nicht erreichbar, Daten bleiben lokal.",
+            message:
+              response.status === 401
+                ? null
+                : (body?.error ??
+                  "Cloud nicht erreichbar, Daten bleiben lokal."),
           });
           cloudReadyRef.current = true;
           return;
@@ -286,21 +322,22 @@ export function AnalysisProvider({ children }: { children: ReactNode }) {
         });
       }
     };
-    void loadFromCloud();
+    void start();
   }, []);
 
   // Änderungen verzögert in den Browser-Zwischenspeicher schreiben.
   useEffect(() => {
-    if (!restoredRef.current) return;
+    const key = autosaveKeyRef.current;
+    if (!key) return;
     const timeout = window.setTimeout(() => {
       try {
         if (state.objects.length === 0 && state.locations.length === 0) {
           // Nur nach bewusstem Leeren entfernen, nie beim ersten Start.
-          if (state.dirty) window.localStorage.removeItem(AUTOSAVE_KEY);
+          if (state.dirty) window.localStorage.removeItem(key);
           return;
         }
         const file = buildAnalysisFile(state.objects, state.locations, "object");
-        window.localStorage.setItem(AUTOSAVE_KEY, JSON.stringify(file));
+        window.localStorage.setItem(key, JSON.stringify(file));
       } catch {
         // Speicher voll oder blockiert: Zwischenspeicherung überspringen.
       }

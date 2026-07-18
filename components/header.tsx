@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { UserMenu } from "@/components/user-menu";
 
 /**
  * Markenbezug als hochwertige Wortmarke.
@@ -54,6 +55,7 @@ export function SiteHeader() {
               </Link>
             );
           })}
+          <UserMenu />
         </nav>
       </div>
     </header>
