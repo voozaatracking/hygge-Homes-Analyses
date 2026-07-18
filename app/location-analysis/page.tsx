@@ -5,6 +5,7 @@ import { useAnalysis } from "@/components/providers";
 import { AnalysisModeSwitch } from "@/components/analysis-mode-switch";
 import { Toolbar } from "@/components/toolbar";
 import { LocationForm } from "@/components/location-form";
+import { ListingSection } from "@/components/listing-section";
 import { LocationComparisonTable } from "@/components/location-dashboard";
 import { LocationCharts, type LocationChartRow } from "@/components/charts/charts";
 import { deriveLocation } from "@/lib/calculations/location-calculations";
@@ -49,19 +50,26 @@ export default function LocationAnalysisPage() {
         <>
           <div className="space-y-6">
             {locations.map((location) => (
-              <LocationForm
-                key={location.id}
-                location={location}
-                onChange={(next) =>
-                  dispatch({ type: "updateLocation", location: next })
-                }
-                onRemove={() =>
-                  dispatch({ type: "removeLocation", id: location.id })
-                }
-                onDuplicate={() =>
-                  dispatch({ type: "duplicateLocation", id: location.id })
-                }
-              />
+              <div key={location.id} className="space-y-6">
+                <LocationForm
+                  location={location}
+                  onChange={(next) =>
+                    dispatch({ type: "updateLocation", location: next })
+                  }
+                  onRemove={() =>
+                    dispatch({ type: "removeLocation", id: location.id })
+                  }
+                  onDuplicate={() =>
+                    dispatch({ type: "duplicateLocation", id: location.id })
+                  }
+                />
+                <ListingSection
+                  location={location}
+                  onChange={(next) =>
+                    dispatch({ type: "updateLocation", location: next })
+                  }
+                />
+              </div>
             ))}
           </div>
 
