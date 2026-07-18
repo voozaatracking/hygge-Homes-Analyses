@@ -110,9 +110,11 @@ export function Toolbar({ mode }: { mode: AnalysisMode }) {
         >
           Beispieldaten laden
         </Button>
-        <Button onClick={() => setExcelOpen(true)}>
-          Aus Excel/CSV importieren
-        </Button>
+        {mode === "object" ? (
+          <Button onClick={() => setExcelOpen(true)}>
+            Aus Excel/CSV importieren
+          </Button>
+        ) : null}
         <span className="mx-1 w-px self-stretch bg-line" aria-hidden="true" />
         <Button onClick={exportJson}>Als JSON speichern</Button>
         <Button onClick={() => jsonInputRef.current?.click()}>
