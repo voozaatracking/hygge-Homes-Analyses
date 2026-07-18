@@ -92,6 +92,27 @@ export interface PropertyInput {
   highlighted: boolean;
 }
 
+/**
+ * Ein recherchiertes Booking-Inserat eines Standorts mit Wochen-Listenpreisen
+ * für KW 1 bis 52 (Struktur der Standortanalyse-Excel).
+ */
+export interface ListingInput {
+  id: string;
+  name: string;
+  /** Link zum Booking-Inserat (optional, reiner Merkposten). */
+  bookingUrl: string;
+  rating: number | null;
+  persons: number | null;
+  /** Reinigungskosten pro Gästewechsel. */
+  cleaningCost: number | null;
+  /** Mehrkosten pro Person. */
+  extraCostPerPerson: number | null;
+  /** Wochen-Listenpreise KW 1 bis 52. Länge immer 52, fehlende Werte null. */
+  weeklyPrices: (number | null)[];
+  /** Fließt die Zeile in Durchschnitt und Diagramm ein. */
+  includeInAggregate: boolean;
+}
+
 export interface LocationInput {
   id: string;
   name: string;
@@ -109,6 +130,14 @@ export interface LocationInput {
   sourceUrl: string;
   notes: string;
   highlighted: boolean;
+
+  /** Recherchierte Inserate mit Wochenpreisen (KW-Analyse). */
+  listings: ListingInput[];
+  /**
+   * Annahme des KW-Modells: Gästewechsel pro Woche.
+   * Die Excel rechnet mit 2 (ergibt 104 Reinigungen pro Jahr).
+   */
+  changesPerWeek: number | null;
 }
 
 export type AnalysisMode = "object" | "location";
