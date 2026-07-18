@@ -1,28 +1,21 @@
 "use client";
 
-import { useMemo } from "react";
 import { useAnalysis } from "@/components/providers";
 import { AnalysisModeSwitch } from "@/components/analysis-mode-switch";
 import { Toolbar } from "@/components/toolbar";
-import { LocationForm } from "@/components/location-form";
+import { LocationHeader } from "@/components/location-header";
 import { ListingSection } from "@/components/listing-section";
-import { LocationComparisonTable } from "@/components/location-dashboard";
-import { LocationCharts, type LocationChartRow } from "@/components/charts/charts";
-import { deriveLocation } from "@/lib/calculations/location-calculations";
 import { Card } from "@/components/ui";
 
+/**
+ * Standortanalyse in der verschlankten Fassung: pro Standort nur der Name
+ * und die Inserate mit Wochenpreisen (KW 1 bis 52) samt Auswertung des
+ * Preisniveaus. Die früheren Marktdaten-Eingaben sind ausgeblendet, die
+ * Datenfelder bleiben im Modell erhalten.
+ */
 export default function LocationAnalysisPage() {
   const { state, dispatch } = useAnalysis();
   const locations = state.locations;
-
-  const chartRows: LocationChartRow[] = useMemo(
-    () =>
-      locations.map((l) => ({
-        name: l.name || "Ohne Namen",
-        derived: deriveLocation(l),
-      })),
-    [locations]
-  );
 
   return (
     <div className="py-8 space-y-6">
@@ -41,49 +34,37 @@ export default function LocationAnalysisPage() {
             Noch keine Standorte angelegt
           </p>
           <p className="text-sm text-muted mt-2 max-w-md mx-auto leading-relaxed">
-            Über „Neuer Standort“ einen leeren Standort anlegen, mit
-            „Beispieldaten laden“ einen fiktiven Standort einfügen oder
-            recherchierte Marktdaten aus einer Excel-Liste importieren.
+            Über „Neuer Standort“ einen Standort anlegen und darin Inserate mit
+            Wochenpreisen erfassen, mit „Beispieldaten laden“ ein Beispiel
+            einfügen oder eine bestehende Standortanalyse-Excel direkt im
+            Standort importieren.
           </p>
         </Card>
       ) : (
-        <>
-          <div className="space-y-6">
-            {locations.map((location) => (
-              <div key={location.id} className="space-y-6">
-                <LocationForm
-                  location={location}
-                  onChange={(next) =>
-                    dispatch({ type: "updateLocation", location: next })
-                  }
-                  onRemove={() =>
-                    dispatch({ type: "removeLocation", id: location.id })
-                  }
-                  onDuplicate={() =>
-                    dispatch({ type: "duplicateLocation", id: location.id })
-                  }
-                />
-                <ListingSection
-                  location={location}
-                  onChange={(next) =>
-                    dispatch({ type: "updateLocation", location: next })
-                  }
-                />
-              </div>
-            ))}
-          </div>
-
-          <LocationComparisonTable
-            locations={locations}
-            onUpdate={(next) =>
-              dispatch({ type: "updateLocation", location: next })
-            }
-            onRemove={(id) => dispatch({ type: "removeLocation", id })}
-            onDuplicate={(id) => dispatch({ type: "duplicateLocation", id })}
-          />
-
-          <LocationCharts rows={chartRows} />
-        </>
+        <div className="space-y-8">
+          {locations.map((location) => (
+            <div key={location.id} className="space-y-6">
+              <LocationHeader
+                location={location}
+                onChange={(next) =>
+                  dispatch({ type: "updateLocation", location: next })
+                }
+                onRemove={() =>
+                  dispatch({ type: "removeLocation", id: location.id })
+                }
+                onDuplicate={() =>
+                  dispatch({ type: "duplicateLocation", id: location.id })
+                }
+              />
+              <ListingSection
+                location={location}
+                onChange={(next) =>
+                  dispatch({ type: "updateLocation", location: next })
+                }
+              />
+            </div>
+          ))}
+        </div>
       )}
     </div>
   );
