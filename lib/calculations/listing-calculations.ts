@@ -10,7 +10,6 @@ import {
   NIGHTS_PER_YEAR,
   WEEKS_PER_YEAR,
 } from "@/lib/config/assumptions";
-import { fmtNum } from "@/lib/format";
 
 /**
  * Inserats- und KW-Analyse eines Standorts.
@@ -29,6 +28,12 @@ export interface DerivedListing {
   filledWeeks: number;
   /** Summe der ausgefüllten Wochenpreise; fehlende Wochen zählen als 0. */
   weeklySum: number | null;
+  /** Durchschnittlicher Wochenpreis über die ausgefüllten Wochen. */
+  avgWeeklyPrice: number | null;
+  /** Preisniveau pro Jahr = Summe der 52 Wochen-Listenpreise. */
+  yearPriceLevel: number | null;
+  /** Preis pro Nacht = durchschnittlicher Wochenpreis / 7. */
+  pricePerNight: number | null;
   /** Verwendete Reinigungskosten pro Wechsel inkl. Herkunft. */
   cleaningUsed: { amount: number; source: ValueSource } | null;
   /** Reinigungskosten pro Jahr = Reinigung × 52 × Wechsel pro Woche. */
@@ -44,6 +49,10 @@ export interface DerivedListing {
 export interface ListingAggregate {
   /** Anzahl der einbezogenen Inserate mit auswertbaren Daten. */
   count: number;
+  /** Mittelwerte des Preisniveaus über die einbezogenen Inserate. */
+  avgWeeklyPrice: number | null;
+  avgYearPriceLevel: number | null;
+  avgPricePerNight: number | null;
   avgRating: number | null;
   avgCleaning: number | null;
   avgExtraPerson: number | null;
@@ -109,22 +118,19 @@ export function deriveListing(
     cleaningUsed = { amount: context.cleaningFallback, source: "derived" };
   }
 
+  // Preisniveau-Kennzahlen (aktuelle Auswertung der Standortanalyse).
+  const avgWeeklyPrice = weeklySum != null ? weeklySum / filledWeeks : null;
+  const yearPriceLevel = weeklySum;
+  const pricePerNight = avgWeeklyPrice != null ? avgWeeklyPrice / 7 : null;
+
+  // Umsatzmodell (derzeit ausgeblendet, bleibt für eine spätere
+  // Wiederaktivierung mitberechnet; erzeugt bewusst keine Warnungen).
   let cleaningPerYear: number | null = null;
   let netListedYear: number | null = null;
   if (weeklySum != null) {
     const cleaningAmount = cleaningUsed?.amount ?? 0;
     cleaningPerYear = cleaningAmount * WEEKS_PER_YEAR * context.changesPerWeek;
     netListedYear = weeklySum - cleaningPerYear;
-    if (cleaningUsed == null) {
-      warnings.push(
-        "Keine Reinigungskosten vorhanden (weder eigene noch Durchschnitt); es wird ohne Reinigungskosten gerechnet."
-      );
-    }
-    if (netListedYear < 0) {
-      warnings.push(
-        "Die Reinigungskosten übersteigen die Summe der Wochenpreise; Ergebnis wird negativ. Eingaben prüfen."
-      );
-    }
   }
 
   const annualRevenue =
@@ -139,6 +145,9 @@ export function deriveListing(
   return {
     filledWeeks,
     weeklySum,
+    avgWeeklyPrice,
+    yearPriceLevel,
+    pricePerNight,
     cleaningUsed,
     cleaningPerYear,
     netListedYear,
@@ -167,24 +176,10 @@ export function deriveListingAnalysis(
       ? location.changesPerWeek
       : LISTING_DEFAULTS.changesPerWeek;
 
-  if (location.listings.length > 0 && occupancyRate == null) {
-    warnings.push(
-      "Für Umsatz pro Jahr und Monat wird die Auslastungsquote des Standorts benötigt (oben in den Marktdaten eintragen, z. B. aus AirDNA)."
-    );
-  }
-
   const givenCleaningCosts = location.listings
     .map((l) => l.cleaningCost)
     .filter(isValidAmount);
   const cleaningFallback = average(givenCleaningCosts);
-  const listingsWithoutCleaning = location.listings.filter(
-    (l) => !isValidAmount(l.cleaningCost)
-  ).length;
-  if (cleaningFallback != null && listingsWithoutCleaning > 0) {
-    warnings.push(
-      `Bei ${listingsWithoutCleaning} Inserat(en) ohne eigene Reinigungskosten wird der Durchschnitt der angegebenen Werte verwendet (${fmtNum(cleaningFallback, 2)} €).`
-    );
-  }
 
   const rows: DerivedListingRow[] = location.listings.map((listing) => ({
     listing,
@@ -203,6 +198,9 @@ export function deriveListingAnalysis(
 
   const aggregate: ListingAggregate = {
     count: included.filter((r) => r.derived.weeklySum != null).length,
+    avgWeeklyPrice: average(values((r) => r.derived.avgWeeklyPrice)),
+    avgYearPriceLevel: average(values((r) => r.derived.yearPriceLevel)),
+    avgPricePerNight: average(values((r) => r.derived.pricePerNight)),
     avgRating: average(values((r) => r.listing.rating)),
     avgCleaning: average(values((r) => r.derived.cleaningUsed?.amount ?? null)),
     avgExtraPerson: average(
