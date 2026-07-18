@@ -11,11 +11,20 @@ import {
  */
 
 export const CALC_VERSION = "1.0.0";
-export const SCHEMA_VERSION = 1;
+export const SCHEMA_VERSION = 2;
 
 /** Standardlogik der bisherigen Tabelle: 30 Tage pro Monat, 12 Monate pro Jahr. */
 export const DAYS_PER_MONTH = 30;
 export const MONTHS_PER_YEAR = 12;
+
+/** KW-Modell der Standortanalyse-Excel: 52 Wochen, 364 Nächte pro Jahr. */
+export const WEEKS_PER_YEAR = 52;
+export const NIGHTS_PER_YEAR = 364;
+
+/** Startwert der KW-Analyse: Gästewechsel pro Woche (Excel: 2 → 104 Reinigungen pro Jahr). */
+export const LISTING_DEFAULTS = {
+  changesPerWeek: 2,
+};
 
 export const ELECTRICITY_DEFAULTS = {
   pricePerKwh: 0.35,
