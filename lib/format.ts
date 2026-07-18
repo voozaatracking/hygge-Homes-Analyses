@@ -49,3 +49,17 @@ export function numberToInput(value: number | null): string {
   if (value == null || Number.isNaN(value)) return "";
   return String(value).replace(".", ",");
 }
+
+/** Datum und Uhrzeit im deutschen Format, z. B. "18.07.2026, 14:30". */
+export function fmtDateTime(iso: string | null | undefined): string {
+  if (!iso) return "–";
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return "–";
+  return date.toLocaleString("de-DE", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
