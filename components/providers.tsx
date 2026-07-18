@@ -6,10 +6,20 @@ import {
   useEffect,
   useMemo,
   useReducer,
+  useRef,
   type ReactNode,
 } from "react";
 import type { LocationInput, PropertyInput } from "@/lib/types/analysis";
 import { emptyLocation, emptyProperty } from "@/lib/utils";
+import { buildAnalysisFile, parseAnalysisFile } from "@/lib/io/json-file";
+
+/**
+ * Automatische Zwischenspeicherung im Browser (localStorage), damit ein
+ * versehentlicher Reload keine Eingaben mehr löscht. Der JSON-Export bleibt
+ * die dauerhafte Sicherung; gespeichert wird dasselbe versionierte Format.
+ */
+const AUTOSAVE_KEY = "hygge-analyse-autosave-v1";
+const AUTOSAVE_DELAY_MS = 800;
 
 interface AnalysisState {
   objects: PropertyInput[];
@@ -30,6 +40,11 @@ type Action =
   | { type: "duplicateLocation"; id: string }
   | { type: "addLocations"; locations: LocationInput[] }
   | { type: "loadFile"; objects: PropertyInput[]; locations: LocationInput[] }
+  | {
+      type: "restoreAutosave";
+      objects: PropertyInput[];
+      locations: LocationInput[];
+    }
   | { type: "resetObjects" }
   | { type: "resetLocations" }
   | { type: "markSaved" };
@@ -128,6 +143,14 @@ function reducer(state: AnalysisState, action: Action): AnalysisState {
         locations: action.locations,
         dirty: false,
       };
+    case "restoreAutosave":
+      // Nie über bereits begonnene Eingaben schreiben.
+      if (state.objects.length > 0 || state.locations.length > 0) return state;
+      return {
+        objects: action.objects,
+        locations: action.locations,
+        dirty: false,
+      };
     case "resetObjects":
       return { ...state, dirty: true, objects: [] };
     case "resetLocations":
@@ -146,6 +169,51 @@ const AnalysisContext = createContext<{
 
 export function AnalysisProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useReducer(reducer, initialState);
+  const restoredRef = useRef(false);
+
+  // Zwischenspeicher beim ersten Laden wiederherstellen (hydration-sicher im Effect).
+  useEffect(() => {
+    if (restoredRef.current) return;
+    restoredRef.current = true;
+    try {
+      const stored = window.localStorage.getItem(AUTOSAVE_KEY);
+      if (!stored) return;
+      const parsed = parseAnalysisFile(stored);
+      if (!parsed.ok || !parsed.data) return;
+      if (
+        parsed.data.objects.length === 0 &&
+        parsed.data.locations.length === 0
+      ) {
+        return;
+      }
+      dispatch({
+        type: "restoreAutosave",
+        objects: parsed.data.objects,
+        locations: parsed.data.locations,
+      });
+    } catch {
+      // localStorage nicht verfügbar (z. B. blockiert): Feature still deaktivieren.
+    }
+  }, []);
+
+  // Änderungen verzögert in den Zwischenspeicher schreiben.
+  useEffect(() => {
+    if (!restoredRef.current) return;
+    const timeout = window.setTimeout(() => {
+      try {
+        if (state.objects.length === 0 && state.locations.length === 0) {
+          // Nur nach bewusstem Leeren entfernen, nie beim ersten Start.
+          if (state.dirty) window.localStorage.removeItem(AUTOSAVE_KEY);
+          return;
+        }
+        const file = buildAnalysisFile(state.objects, state.locations, "object");
+        window.localStorage.setItem(AUTOSAVE_KEY, JSON.stringify(file));
+      } catch {
+        // Speicher voll oder blockiert: Zwischenspeicherung überspringen.
+      }
+    }, AUTOSAVE_DELAY_MS);
+    return () => window.clearTimeout(timeout);
+  }, [state.objects, state.locations, state.dirty]);
 
   // Schutz vor Datenverlust: Browser-Warnung bei ungespeicherten Änderungen.
   useEffect(() => {
