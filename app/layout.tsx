@@ -3,6 +3,7 @@ import { Jost, Oswald } from "next/font/google";
 import "./globals.css";
 import { AnalysisProvider } from "@/components/providers";
 import { SiteHeader } from "@/components/header";
+import { SyncStatus } from "@/components/sync-status";
 
 const display = Oswald({
   variable: "--font-oswald",
@@ -42,9 +43,10 @@ export default function RootLayout({
             <div className="max-w-6xl mx-auto px-4 sm:px-6 text-sm text-muted flex flex-wrap gap-x-6 gap-y-1 justify-between">
               <span>Hygge Homes · Objekt- und Standortanalyse</span>
               <span>
-                Alle Daten bleiben im Browser und werden dort automatisch
-                zwischengespeichert. Dauerhaft sichern per JSON-Export.
+                Automatische Zwischenspeicherung im Browser, dauerhaft sichern
+                per JSON-Export oder Cloud-Speicherung.
               </span>
+              <SyncStatus />
             </div>
           </footer>
         </AnalysisProvider>
