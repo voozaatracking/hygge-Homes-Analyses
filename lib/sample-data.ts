@@ -1,5 +1,10 @@
 import type { LocationInput, PropertyInput } from "@/lib/types/analysis";
-import { emptyLocation, emptyProperty } from "@/lib/utils";
+import {
+  emptyListing,
+  emptyLocation,
+  emptyProperty,
+  fillWeeklyPricesRight,
+} from "@/lib/utils";
 
 /**
  * Fiktive Beispieldaten zur Demonstration der Anwendung.
@@ -55,5 +60,27 @@ export function sampleLocations(): LocationInput[] {
   l.extraPersonCost = 15;
   l.notes =
     "Fiktive Beispieldaten zur Demonstration. Eigene Werte aus AirDNA oder anderer Quelle eintragen.";
+
+  // Zwei fiktive Inserate mit Wochenpreisen für die KW-Analyse.
+  const listingA = emptyListing("Beispiel: Strandnahes Apartment (4 Pers.)");
+  listingA.rating = 8.9;
+  listingA.persons = 4;
+  listingA.cleaningCost = 80;
+  listingA.extraCostPerPerson = 12;
+  listingA.weeklyPrices[0] = 890;
+  listingA.weeklyPrices[21] = 1190; // Sommerpreise ab KW 22
+  listingA.weeklyPrices[35] = 890; // ab KW 36 wieder Nebensaison
+  listingA.weeklyPrices = fillWeeklyPricesRight(listingA.weeklyPrices);
+
+  const listingB = emptyListing("Beispiel: Ferienhaus mit Garten (6 Pers.)");
+  listingB.rating = 9.3;
+  listingB.persons = 6;
+  listingB.cleaningCost = 110;
+  listingB.weeklyPrices[0] = 1250;
+  listingB.weeklyPrices[21] = 1650;
+  listingB.weeklyPrices[35] = 1250;
+  listingB.weeklyPrices = fillWeeklyPricesRight(listingB.weeklyPrices);
+
+  l.listings = [listingA, listingB];
   return [l];
 }

@@ -1,7 +1,13 @@
-import type { LocationInput, PropertyInput } from "@/lib/types/analysis";
+import type {
+  ListingInput,
+  LocationInput,
+  PropertyInput,
+} from "@/lib/types/analysis";
 import {
   CLEANING_DEFAULTS,
   ELECTRICITY_DEFAULTS,
+  LISTING_DEFAULTS,
+  WEEKS_PER_YEAR,
 } from "@/lib/config/assumptions";
 
 export function newId(): string {
@@ -58,7 +64,61 @@ export function emptyLocation(name: string): LocationInput {
     sourceUrl: "",
     notes: "",
     highlighted: false,
+    listings: [],
+    changesPerWeek: LISTING_DEFAULTS.changesPerWeek,
   };
+}
+
+/** Leeres Inserat mit 52 leeren Kalenderwochen. */
+export function emptyListing(name: string): ListingInput {
+  return {
+    id: newId(),
+    name,
+    bookingUrl: "",
+    rating: null,
+    persons: null,
+    cleaningCost: null,
+    extraCostPerPerson: null,
+    weeklyPrices: emptyWeeklyPrices(),
+    includeInAggregate: true,
+  };
+}
+
+export function emptyWeeklyPrices(): (number | null)[] {
+  return Array.from({ length: WEEKS_PER_YEAR }, () => null);
+}
+
+/** Füllt leere KW mit dem jeweils letzten davor eingetragenen Preis auf. */
+export function fillWeeklyPricesRight(
+  prices: (number | null)[]
+): (number | null)[] {
+  const next = [...prices];
+  let last: number | null = null;
+  for (let i = 0; i < next.length; i++) {
+    const v = next[i];
+    if (v != null) {
+      last = v;
+    } else if (last != null) {
+      next[i] = last;
+    }
+  }
+  return next;
+}
+
+/**
+ * Bringt eine Wochenpreis-Liste auf exakt 52 Einträge
+ * (zu kurze Listen auffüllen, zu lange abschneiden).
+ */
+export function normalizeWeeklyPrices(
+  prices: (number | null)[] | undefined
+): (number | null)[] {
+  const result = emptyWeeklyPrices();
+  if (!prices) return result;
+  for (let i = 0; i < Math.min(prices.length, WEEKS_PER_YEAR); i++) {
+    const v = prices[i];
+    result[i] = typeof v === "number" && !Number.isNaN(v) ? v : null;
+  }
+  return result;
 }
 
 export type SortDirection = "asc" | "desc";
