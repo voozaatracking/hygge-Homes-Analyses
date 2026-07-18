@@ -1,32 +1,31 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { AUTH_COOKIE, authToken, timingSafeEqual } from "@/lib/auth";
+import { SESSION_COOKIE, verifySessionToken } from "@/lib/session";
 
 /**
- * Passwortschutz für die gesamte Seite (Next 16: proxy.ts statt middleware.ts).
+ * Zugangsschutz für alle Seiten (Next 16: proxy.ts statt middleware.ts).
  *
- * Ausgenommen sind die Login-Seite, die Login-API, Next-interne Assets und
- * statische Dateien (alles mit Dateiendung), siehe matcher unten.
+ * Geprüft wird das signierte Session-Cookie (Benutzername/Passwort-Login).
+ * Der Status "aktiv" wird zusätzlich bei jedem Datenzugriff in /api/data
+ * live geprüft; deaktivierte Nutzer verlieren den Datenzugriff sofort und
+ * sehen schlimmstenfalls bis zum Cookie-Ablauf noch die leere Seitenhülle.
  *
- * Ohne gesetzte Umgebungsvariable SITE_PASSWORD bleibt die Seite in der
- * lokalen Entwicklung offen. In Produktion wird in dem Fall auf die
- * Login-Seite geleitet, die auf die fehlende Konfiguration hinweist.
+ * Ohne gesetztes SITE_PASSWORD bleibt die Seite in der lokalen Entwicklung
+ * offen; in Produktion wird auf die Login-Seite geleitet.
  */
 export async function proxy(request: NextRequest) {
-  const password = process.env.SITE_PASSWORD;
+  const secret = process.env.SITE_PASSWORD;
 
-  if (!password) {
+  if (!secret) {
     if (process.env.NODE_ENV !== "production") {
       return NextResponse.next();
     }
     return redirectToLogin(request);
   }
 
-  const cookie = request.cookies.get(AUTH_COOKIE)?.value;
-  if (cookie) {
-    const expected = await authToken(password);
-    if (timingSafeEqual(cookie, expected)) {
-      return NextResponse.next();
-    }
+  const token = request.cookies.get(SESSION_COOKIE)?.value;
+  const session = await verifySessionToken(token, secret);
+  if (session) {
+    return NextResponse.next();
   }
 
   return redirectToLogin(request);
@@ -46,7 +45,7 @@ export const config = {
     /*
      * Alles prüfen außer:
      * - /login (sonst Weiterleitungsschleife)
-     * - /api (API-Routen prüfen das Auth-Cookie selbst und antworten
+     * - /api (API-Routen prüfen die Sitzung selbst und antworten
      *   mit JSON-Statuscodes statt einer HTML-Weiterleitung)
      * - /_next/static und /_next/image (Build-Assets)
      * - Dateien mit Endung (favicon, Bilder aus public/)
