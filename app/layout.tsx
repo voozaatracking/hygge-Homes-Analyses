@@ -42,7 +42,8 @@ export default function RootLayout({
             <div className="max-w-6xl mx-auto px-4 sm:px-6 text-sm text-muted flex flex-wrap gap-x-6 gap-y-1 justify-between">
               <span>Hygge Homes · Objekt- und Standortanalyse</span>
               <span>
-                Alle Daten bleiben im Browser. Speichern per JSON-Export.
+                Alle Daten bleiben im Browser und werden dort automatisch
+                zwischengespeichert. Dauerhaft sichern per JSON-Export.
               </span>
             </div>
           </footer>
