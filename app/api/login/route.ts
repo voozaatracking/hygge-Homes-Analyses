@@ -1,62 +1,111 @@
 import { NextResponse } from "next/server";
 import {
-  AUTH_COOKIE,
-  AUTH_MAX_AGE_SECONDS,
-  authToken,
-  timingSafeEqual,
-} from "@/lib/auth";
+  createSessionToken,
+  MASTER_UID,
+  MASTER_USERNAME,
+  SESSION_COOKIE,
+  SESSION_MAX_AGE_SECONDS,
+} from "@/lib/session";
+import { verifyPassword } from "@/lib/passwords";
+import { findUserByUsername, touchLastLogin } from "@/lib/users";
 
 /**
- * Nimmt das eingegebene Passwort entgegen, vergleicht es mit SITE_PASSWORD
- * und setzt bei Erfolg das httpOnly-Auth-Cookie.
+ * Anmeldung mit Benutzername und Passwort.
  *
- * Verglichen werden die HMAC-Ableitungen beider Werte, nicht die Klartexte.
- * Dadurch ist der Vergleich unabhängig von der Passwortlänge und ohne
- * verwertbare Zeitunterschiede.
+ * Reihenfolge:
+ * 1. Nutzer aus der Tabelle app_users (aktiv, Passwort-Hash stimmt).
+ * 2. Master-Admin-Notzugang: Benutzername "admin" mit SITE_PASSWORD.
+ *    Funktioniert immer, auch bei leerer Tabelle oder gestörtem Supabase,
+ *    damit niemand ausgesperrt werden kann.
+ *
+ * Bei Erfolg wird ein signiertes, httpOnly-Session-Cookie gesetzt (7 Tage).
  */
 export async function POST(request: Request) {
-  const password = process.env.SITE_PASSWORD;
-
-  if (!password) {
+  const sitePassword = process.env.SITE_PASSWORD;
+  if (!sitePassword) {
     return NextResponse.json(
       {
         ok: false,
         error:
-          "Auf dem Server ist kein Zugangspasswort konfiguriert. In Vercel die Umgebungsvariable SITE_PASSWORD setzen und neu deployen.",
+          "Auf dem Server ist kein SITE_PASSWORD konfiguriert. In Vercel setzen und neu deployen.",
       },
       { status: 500 }
     );
   }
 
-  let submitted = "";
+  let username = "";
+  let password = "";
   try {
-    const body = (await request.json()) as { password?: unknown };
-    if (typeof body.password === "string") {
-      submitted = body.password;
-    }
+    const body = (await request.json()) as {
+      username?: unknown;
+      password?: unknown;
+    };
+    if (typeof body.username === "string") username = body.username.trim();
+    if (typeof body.password === "string") password = body.password;
   } catch {
-    // Ungültiger oder fehlender Body: wird wie ein leeres Passwort behandelt.
+    // Leerer oder ungültiger Body wird wie falsche Zugangsdaten behandelt.
   }
 
-  const expectedToken = await authToken(password);
-  const submittedToken = await authToken(submitted);
-
-  if (!timingSafeEqual(submittedToken, expectedToken)) {
-    return NextResponse.json(
-      { ok: false, error: "Falsches Passwort." },
-      { status: 401 }
-    );
+  // 1) Nutzer aus der Tabelle.
+  const user = username ? await findUserByUsername(username) : null;
+  if (user) {
+    const valid = await verifyPassword(password, user.password_hash);
+    if (valid && !user.active) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error:
+            "Der Zugang ist deaktiviert. Bitte an den Administrator wenden.",
+        },
+        { status: 403 }
+      );
+    }
+    if (valid) {
+      await touchLastLogin(user.id);
+      return respondWithSession(sitePassword, {
+        uid: user.id,
+        username: user.username,
+        role: user.role,
+      });
+    }
   }
 
-  const response = NextResponse.json({ ok: true });
+  // 2) Master-Admin-Notzugang.
+  if (
+    username.toLowerCase() === MASTER_USERNAME &&
+    password === sitePassword
+  ) {
+    return respondWithSession(sitePassword, {
+      uid: MASTER_UID,
+      username: MASTER_USERNAME,
+      role: "admin",
+    });
+  }
+
+  return NextResponse.json(
+    { ok: false, error: "Benutzername oder Passwort ist falsch." },
+    { status: 401 }
+  );
+}
+
+async function respondWithSession(
+  secret: string,
+  payload: { uid: string; username: string; role: "admin" | "member" }
+) {
+  const token = await createSessionToken(payload, secret);
+  const response = NextResponse.json({
+    ok: true,
+    username: payload.username,
+    role: payload.role,
+  });
   response.cookies.set({
-    name: AUTH_COOKIE,
-    value: expectedToken,
+    name: SESSION_COOKIE,
+    value: token,
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
     sameSite: "lax",
     path: "/",
-    maxAge: AUTH_MAX_AGE_SECONDS,
+    maxAge: SESSION_MAX_AGE_SECONDS,
   });
   return response;
 }

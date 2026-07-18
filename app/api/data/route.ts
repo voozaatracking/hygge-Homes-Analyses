@@ -1,35 +1,58 @@
 import { NextResponse } from "next/server";
-import { hasValidAuthCookie } from "@/lib/auth";
+import { MASTER_UID, sessionFromRequest } from "@/lib/session";
 import {
   ANALYSIS_TABLE,
   getServiceClient,
   SHARED_ROW_ID,
 } from "@/lib/supabase-server";
 import { parseAnalysisFile } from "@/lib/io/json-file";
+import { findUserById } from "@/lib/users";
 
 /**
- * Gemeinsamer Datenstand in Supabase (eine Zeile mit dem kompletten,
+ * Datenstand pro Nutzer in Supabase (eine Zeile je Nutzer mit dem kompletten,
  * versionierten Analyse-JSON, Prinzip "letzter Schreiber gewinnt").
  *
- * GET  → { configured, payload, updatedAt }
- * PUT  → speichert einen validierten Analyse-Datenstand
- *
- * Beide Methoden verlangen das Auth-Cookie des Passwortschutzes und
- * antworten mit JSON-Statuscodes (kein HTML-Redirect wie der Proxy).
+ * Zeilenschlüssel: die Nutzer-Kennung; der Master-Admin arbeitet auf der
+ * bisherigen Zeile "shared", der bestehende Datenstand bleibt damit beim
+ * Admin-Zugang. Neue Nutzer starten leer; Übergabe von Daten läuft bewusst
+ * über JSON-Export und -Import.
  */
 
-async function requireAuth(request: Request): Promise<NextResponse | null> {
-  const ok = await hasValidAuthCookie(request.headers.get("cookie"));
-  if (ok) return null;
-  return NextResponse.json(
-    { ok: false, error: "Nicht angemeldet." },
-    { status: 401 }
-  );
+async function resolveAccess(request: Request): Promise<
+  | { response: NextResponse }
+  | { rowId: string }
+> {
+  const session = await sessionFromRequest(request);
+  if (!session) {
+    return {
+      response: NextResponse.json(
+        { ok: false, error: "Nicht angemeldet." },
+        { status: 401 }
+      ),
+    };
+  }
+  if (session.uid === MASTER_UID) {
+    return { rowId: SHARED_ROW_ID };
+  }
+  // Status live prüfen: Deaktivierte Nutzer verlieren den Datenzugriff sofort.
+  const user = await findUserById(session.uid);
+  if (!user || !user.active) {
+    return {
+      response: NextResponse.json(
+        {
+          ok: false,
+          error: "Der Zugang ist deaktiviert oder wurde entfernt.",
+        },
+        { status: 403 }
+      ),
+    };
+  }
+  return { rowId: session.uid };
 }
 
 export async function GET(request: Request) {
-  const denied = await requireAuth(request);
-  if (denied) return denied;
+  const access = await resolveAccess(request);
+  if ("response" in access) return access.response;
 
   const supabase = getServiceClient();
   if (!supabase) {
@@ -44,7 +67,7 @@ export async function GET(request: Request) {
   const { data, error } = await supabase
     .from(ANALYSIS_TABLE)
     .select("payload, updated_at")
-    .eq("id", SHARED_ROW_ID)
+    .eq("id", access.rowId)
     .maybeSingle();
 
   if (error) {
@@ -68,8 +91,8 @@ export async function GET(request: Request) {
 }
 
 export async function PUT(request: Request) {
-  const denied = await requireAuth(request);
-  if (denied) return denied;
+  const access = await resolveAccess(request);
+  if ("response" in access) return access.response;
 
   const supabase = getServiceClient();
   if (!supabase) {
@@ -103,7 +126,7 @@ export async function PUT(request: Request) {
 
   const updatedAt = new Date().toISOString();
   const { error } = await supabase.from(ANALYSIS_TABLE).upsert({
-    id: SHARED_ROW_ID,
+    id: access.rowId,
     payload: parsed.data,
     updated_at: updatedAt,
   });
