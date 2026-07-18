@@ -4,12 +4,12 @@ import { useState, type FormEvent } from "react";
 import { Button, Card, Notice } from "@/components/ui";
 
 /**
- * Login-Seite des gemeinsamen Passwortschutzes.
- *
+ * Login-Seite: Benutzername und Passwort.
  * Nach erfolgreicher Anmeldung wird auf die ursprünglich aufgerufene Seite
  * weitergeleitet (Query-Parameter "from", nur seiteninterne Pfade erlaubt).
  */
 export default function LoginPage() {
+  const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
@@ -24,7 +24,7 @@ export default function LoginPage() {
       const response = await fetch("/api/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ password }),
+        body: JSON.stringify({ username, password }),
       });
 
       if (response.ok) {
@@ -46,31 +46,51 @@ export default function LoginPage() {
     }
   }
 
+  const inputClass =
+    "w-full bg-card border border-line rounded-lg px-3 py-2 text-sm text-ink placeholder:text-muted/60 focus:border-taupe";
+
   return (
     <div className="py-16 flex justify-center">
       <Card className="w-full max-w-sm">
         <h1 className="font-display text-xl tracking-wide uppercase text-ink mb-1">
-          Zugang
+          Anmeldung
         </h1>
         <p className="text-sm text-muted mb-5">
-          Dieser Bereich ist passwortgeschützt. Passwort eingeben, um die
-          Objekt- und Standortanalyse zu öffnen.
+          Mit dem persönlichen Zugang anmelden, um die Objekt- und
+          Standortanalyse zu öffnen.
         </p>
         <form onSubmit={submit} className="space-y-4">
           <div>
             <label
-              htmlFor="site-password"
+              htmlFor="login-username"
+              className="block text-sm text-ink mb-1.5"
+            >
+              Benutzername
+            </label>
+            <input
+              id="login-username"
+              type="text"
+              autoComplete="username"
+              autoCapitalize="none"
+              value={username}
+              onChange={(event) => setUsername(event.target.value)}
+              className={inputClass}
+            />
+          </div>
+          <div>
+            <label
+              htmlFor="login-password"
               className="block text-sm text-ink mb-1.5"
             >
               Passwort
             </label>
             <input
-              id="site-password"
+              id="login-password"
               type="password"
               autoComplete="current-password"
               value={password}
               onChange={(event) => setPassword(event.target.value)}
-              className="w-full bg-card border border-line rounded-lg px-3 py-2 text-sm text-ink placeholder:text-muted/60 focus:border-taupe"
+              className={inputClass}
             />
           </div>
           {error ? <Notice kind="error">{error}</Notice> : null}
