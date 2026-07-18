@@ -7,6 +7,7 @@ import {
   useMemo,
   useReducer,
   useRef,
+  useState,
   type ReactNode,
 } from "react";
 import type { LocationInput, PropertyInput } from "@/lib/types/analysis";
@@ -162,41 +163,133 @@ function reducer(state: AnalysisState, action: Action): AnalysisState {
   }
 }
 
+/** Status der Cloud-Speicherung (Supabase über /api/data). */
+export interface SyncInfo {
+  status: "checking" | "disabled" | "synced" | "saving" | "error";
+  lastSavedAt: string | null;
+  message: string | null;
+}
+
+const CLOUD_SAVE_DELAY_MS = 1200;
+
+/** Vergleichsbasis für "hat sich etwas geändert": nur die Nutzdaten. */
+function serializeData(
+  objects: PropertyInput[],
+  locations: LocationInput[]
+): string {
+  return JSON.stringify({ objects, locations });
+}
+
 const AnalysisContext = createContext<{
   state: AnalysisState;
   dispatch: (action: Action) => void;
+  sync: SyncInfo;
 } | null>(null);
 
 export function AnalysisProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useReducer(reducer, initialState);
+  const [sync, setSync] = useState<SyncInfo>({
+    status: "checking",
+    lastSavedAt: null,
+    message: null,
+  });
   const restoredRef = useRef(false);
+  /** true, sobald der erste Abgleich mit der Cloud abgeschlossen ist. */
+  const cloudReadyRef = useRef(false);
+  const cloudEnabledRef = useRef(false);
+  /** Zuletzt mit der Cloud abgeglichener Datenstand (Schleifenschutz). */
+  const lastSyncedRef = useRef<string | null>(null);
 
-  // Zwischenspeicher beim ersten Laden wiederherstellen (hydration-sicher im Effect).
+  // Beim ersten Laden: Zwischenspeicher wiederherstellen, dann Cloud abgleichen.
   useEffect(() => {
     if (restoredRef.current) return;
     restoredRef.current = true;
+
     try {
       const stored = window.localStorage.getItem(AUTOSAVE_KEY);
-      if (!stored) return;
-      const parsed = parseAnalysisFile(stored);
-      if (!parsed.ok || !parsed.data) return;
-      if (
-        parsed.data.objects.length === 0 &&
-        parsed.data.locations.length === 0
-      ) {
-        return;
+      if (stored) {
+        const parsed = parseAnalysisFile(stored);
+        if (
+          parsed.ok &&
+          parsed.data &&
+          (parsed.data.objects.length > 0 || parsed.data.locations.length > 0)
+        ) {
+          dispatch({
+            type: "restoreAutosave",
+            objects: parsed.data.objects,
+            locations: parsed.data.locations,
+          });
+        }
       }
-      dispatch({
-        type: "restoreAutosave",
-        objects: parsed.data.objects,
-        locations: parsed.data.locations,
-      });
     } catch {
       // localStorage nicht verfügbar (z. B. blockiert): Feature still deaktivieren.
     }
+
+    // Cloud-Abgleich: Vorhandene Cloud-Daten gewinnen beim Laden, damit alle
+    // Geräte mit demselben gemeinsamen Stand starten. Ein lokaler Stand ohne
+    // Cloud-Daten wird anschließend automatisch hochgeladen.
+    const loadFromCloud = async () => {
+      try {
+        const response = await fetch("/api/data", { cache: "no-store" });
+        if (!response.ok) {
+          setSync({
+            status: "error",
+            lastSavedAt: null,
+            message: "Cloud nicht erreichbar, Daten bleiben lokal.",
+          });
+          cloudReadyRef.current = true;
+          return;
+        }
+        const body = (await response.json()) as {
+          configured?: boolean;
+          payload?: unknown;
+          updatedAt?: string | null;
+        };
+        if (!body.configured) {
+          cloudEnabledRef.current = false;
+          cloudReadyRef.current = true;
+          setSync({ status: "disabled", lastSavedAt: null, message: null });
+          return;
+        }
+        cloudEnabledRef.current = true;
+        if (body.payload != null) {
+          const parsed = parseAnalysisFile(JSON.stringify(body.payload));
+          if (parsed.ok && parsed.data) {
+            const hasData =
+              parsed.data.objects.length > 0 ||
+              parsed.data.locations.length > 0;
+            if (hasData) {
+              lastSyncedRef.current = serializeData(
+                parsed.data.objects,
+                parsed.data.locations
+              );
+              dispatch({
+                type: "loadFile",
+                objects: parsed.data.objects,
+                locations: parsed.data.locations,
+              });
+            }
+          }
+        }
+        cloudReadyRef.current = true;
+        setSync({
+          status: "synced",
+          lastSavedAt: body.updatedAt ?? null,
+          message: null,
+        });
+      } catch {
+        cloudReadyRef.current = true;
+        setSync({
+          status: "error",
+          lastSavedAt: null,
+          message: "Cloud nicht erreichbar, Daten bleiben lokal.",
+        });
+      }
+    };
+    void loadFromCloud();
   }, []);
 
-  // Änderungen verzögert in den Zwischenspeicher schreiben.
+  // Änderungen verzögert in den Browser-Zwischenspeicher schreiben.
   useEffect(() => {
     if (!restoredRef.current) return;
     const timeout = window.setTimeout(() => {
@@ -215,6 +308,60 @@ export function AnalysisProvider({ children }: { children: ReactNode }) {
     return () => window.clearTimeout(timeout);
   }, [state.objects, state.locations, state.dirty]);
 
+  // Änderungen verzögert in die Cloud schreiben (letzter Schreiber gewinnt).
+  useEffect(() => {
+    if (!cloudEnabledRef.current || !cloudReadyRef.current) return;
+    const current = serializeData(state.objects, state.locations);
+    if (current === lastSyncedRef.current) return;
+    if (
+      state.objects.length === 0 &&
+      state.locations.length === 0 &&
+      !state.dirty
+    ) {
+      return;
+    }
+
+    const timeout = window.setTimeout(async () => {
+      setSync((prev) => ({ ...prev, status: "saving", message: null }));
+      try {
+        const file = buildAnalysisFile(state.objects, state.locations, "object");
+        const response = await fetch("/api/data", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(file),
+        });
+        const body = (await response.json().catch(() => null)) as {
+          ok?: boolean;
+          updatedAt?: string;
+          error?: string;
+        } | null;
+        if (response.ok && body?.ok) {
+          lastSyncedRef.current = current;
+          setSync({
+            status: "synced",
+            lastSavedAt: body.updatedAt ?? new Date().toISOString(),
+            message: null,
+          });
+        } else {
+          setSync({
+            status: "error",
+            lastSavedAt: null,
+            message:
+              body?.error ??
+              "Cloud-Speichern fehlgeschlagen, Daten bleiben lokal.",
+          });
+        }
+      } catch {
+        setSync({
+          status: "error",
+          lastSavedAt: null,
+          message: "Cloud-Speichern fehlgeschlagen, Daten bleiben lokal.",
+        });
+      }
+    }, CLOUD_SAVE_DELAY_MS);
+    return () => window.clearTimeout(timeout);
+  }, [state.objects, state.locations, state.dirty]);
+
   // Schutz vor Datenverlust: Browser-Warnung bei ungespeicherten Änderungen.
   useEffect(() => {
     const handler = (event: BeforeUnloadEvent) => {
@@ -226,7 +373,7 @@ export function AnalysisProvider({ children }: { children: ReactNode }) {
     return () => window.removeEventListener("beforeunload", handler);
   }, [state.dirty, state.objects.length, state.locations.length]);
 
-  const value = useMemo(() => ({ state, dispatch }), [state]);
+  const value = useMemo(() => ({ state, dispatch, sync }), [state, sync]);
   return (
     <AnalysisContext.Provider value={value}>
       {children}
