@@ -45,10 +45,12 @@ export const config = {
   matcher: [
     /*
      * Alles prüfen außer:
-     * - /login und /api/login (sonst Weiterleitungsschleife)
+     * - /login (sonst Weiterleitungsschleife)
+     * - /api (API-Routen prüfen das Auth-Cookie selbst und antworten
+     *   mit JSON-Statuscodes statt einer HTML-Weiterleitung)
      * - /_next/static und /_next/image (Build-Assets)
      * - Dateien mit Endung (favicon, Bilder aus public/)
      */
-    "/((?!login|api/login|_next/static|_next/image|.*\\..*).*)",
+    "/((?!api|login|_next/static|_next/image|.*\\..*).*)",
   ],
 };
