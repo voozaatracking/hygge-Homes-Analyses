@@ -53,3 +53,31 @@ export function timingSafeEqual(a: string, b: string): boolean {
   }
   return result === 0;
 }
+
+/** Liest den Wert eines Cookies aus einem rohen Cookie-Header. */
+export function readCookieValue(
+  cookieHeader: string | null,
+  name: string
+): string | null {
+  if (!cookieHeader) return null;
+  for (const part of cookieHeader.split(";")) {
+    const [key, ...rest] = part.trim().split("=");
+    if (key === name) return rest.join("=") || null;
+  }
+  return null;
+}
+
+/**
+ * Prüft für API-Routen, ob der Request ein gültiges Auth-Cookie trägt.
+ * Ohne konfiguriertes Passwort gilt nur die lokale Entwicklung als erlaubt.
+ */
+export async function hasValidAuthCookie(
+  cookieHeader: string | null
+): Promise<boolean> {
+  const password = process.env.SITE_PASSWORD;
+  if (!password) return process.env.NODE_ENV !== "production";
+  const cookie = readCookieValue(cookieHeader, AUTH_COOKIE);
+  if (!cookie) return false;
+  const expected = await authToken(password);
+  return timingSafeEqual(cookie, expected);
+}
