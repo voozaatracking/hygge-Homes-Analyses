@@ -8,8 +8,10 @@ import type {
 import {
   assumptionsSnapshot,
   CALC_VERSION,
+  LISTING_DEFAULTS,
   SCHEMA_VERSION,
 } from "@/lib/config/assumptions";
+import { normalizeWeeklyPrices } from "@/lib/utils";
 import { ENERGY_CLASSES } from "@/lib/types/analysis";
 
 const nullableNumber = z.number().nullable();
@@ -66,6 +68,19 @@ const propertySchema = z.object({
   highlighted: z.boolean().default(false),
 });
 
+const listingSchema = z.object({
+  id: z.string(),
+  name: z.string().default(""),
+  bookingUrl: z.string().default(""),
+  rating: nullableNumber.default(null),
+  persons: nullableNumber.default(null),
+  cleaningCost: nullableNumber.default(null),
+  extraCostPerPerson: nullableNumber.default(null),
+  /** Länge wird nach dem Parsen auf exakt 52 normalisiert. */
+  weeklyPrices: z.array(nullableNumber).default([]),
+  includeInAggregate: z.boolean().default(true),
+});
+
 const locationSchema = z.object({
   id: z.string(),
   name: z.string(),
@@ -80,6 +95,9 @@ const locationSchema = z.object({
   sourceUrl: z.string().default(""),
   notes: z.string().default(""),
   highlighted: z.boolean().default(false),
+  /** Ab Schema-Version 2. Ältere Dateien erhalten hier Standardwerte. */
+  listings: z.array(listingSchema).default([]),
+  changesPerWeek: nullableNumber.default(LISTING_DEFAULTS.changesPerWeek),
 });
 
 const analysisFileSchema = z.object({
@@ -117,7 +135,8 @@ export interface ParseResult {
 
 /**
  * Migriert ältere Schema-Versionen auf die aktuelle Version.
- * Version 1 ist die erste Version, ältere Dateien existieren nicht.
+ * Version 1 → 2: Standorte erhalten die Felder `listings` und
+ * `changesPerWeek`; beides wird über Schema-Defaults aufgefüllt.
  * Neuere Versionen werden mit verständlicher Meldung abgelehnt.
  */
 function migrate(raw: { schemaVersion?: unknown }): {
@@ -169,6 +188,12 @@ export function parseAnalysisFile(jsonText: string): ParseResult {
       ok: false,
       error: `Die Datei entspricht nicht dem erwarteten Analyse-Format (${first?.path.join(".") || "Struktur"}: ${first?.message || "ungültig"}).`,
     };
+  }
+  // Wochenpreise nach dem Parsen auf exakt 52 Einträge bringen.
+  for (const location of parsed.data.locations) {
+    for (const listing of location.listings) {
+      listing.weeklyPrices = normalizeWeeklyPrices(listing.weeklyPrices);
+    }
   }
   // Zod validiert assumptions nur generisch (informativer Snapshot),
   // daher die doppelte Assertion auf den konkreten Dateityp.
