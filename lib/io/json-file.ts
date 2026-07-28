@@ -10,6 +10,7 @@ import {
   CALC_VERSION,
   ELECTRICITY_DEFAULTS,
   LISTING_DEFAULTS,
+  REVENUE_DEFAULTS,
   SCHEMA_VERSION,
 } from "@/lib/config/assumptions";
 import { normalizeWeeklyPrices } from "@/lib/utils";
@@ -54,6 +55,8 @@ const propertySchema = z.object({
     useManualElectricity: z.boolean(),
     cleaningManual: nullableNumber,
     useManualCleaning: z.boolean(),
+    /** Ab Einführung der Kurtaxe. Ältere Dateien: keine Kurtaxe. */
+    touristTaxPerPersonNight: nullableNumber.default(null),
     extras: z.array(costItemSchema),
   }),
   electricityAssumptions: z.object({
@@ -64,6 +67,18 @@ const propertySchema = z.object({
       ELECTRICITY_DEFAULTS.consumptionKwhSqmMonth
     ),
   }),
+  /** Ab Einführung der Plattformprovision. Ältere Dateien erhalten den Standardwert. */
+  revenueAssumptions: z
+    .object({
+      platformCommissionPct: nullableNumber.default(
+        REVENUE_DEFAULTS.platformCommissionPct
+      ),
+    })
+    .default({
+      platformCommissionPct: REVENUE_DEFAULTS.platformCommissionPct,
+    }),
+  /** Ab Einführung der Amortisationsrechnung. Ältere Dateien: keine Startinvestition. */
+  startInvestment: nullableNumber.default(null),
   cleaningAssumptions: z.object({
     minutesPerSqm: nullableNumber,
     hourlyWage: nullableNumber,
