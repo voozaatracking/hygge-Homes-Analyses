@@ -431,11 +431,25 @@ export function PropertyForm({
           ) : (
             <>
               <p className="text-xs text-muted">
-                Automatisch berechnet aus Energieverbrauch, Gesamtfläche,
-                Strompreis und Aufschlag. Strompreis und Aufschlag sind frei
-                editierbare Annahmen.
+                Automatisch berechnet aus angenommenem Stromverbrauch,
+                Gesamtfläche, Strompreis und Aufschlag. Alle drei Annahmen sind
+                frei editierbar. Der Energieausweis-Verbrauch (Heizenergie)
+                fließt hier bewusst nicht ein.
               </p>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <NumberField
+                  label="Stromverbrauch"
+                  unit="kWh/qm pro Monat"
+                  value={property.electricityAssumptions.consumptionKwhSqmMonth}
+                  onChange={(v) =>
+                    set(
+                      (d) =>
+                        (d.electricityAssumptions.consumptionKwhSqmMonth = v)
+                    )
+                  }
+                  error={errors.consumptionKwhSqmMonth}
+                  help="Annahme für den reinen Stromverbrauch, Standard 2,08 kWh/qm pro Monat. Nicht der Energieausweis-Wert, dieser beschreibt den Heizenergiebedarf."
+                />
                 <NumberField
                   label="Strompreis"
                   unit="€/kWh"
@@ -463,8 +477,8 @@ export function PropertyForm({
                 />
               ) : (
                 <Notice kind="info">
-                  Für die automatische Berechnung fehlen noch: Energieverbrauch
-                  oder Klasse, Gesamtfläche, Strompreis, Aufschlag.
+                  Für die automatische Berechnung fehlen noch: Stromverbrauch,
+                  Gesamtfläche, Strompreis oder Aufschlag.
                 </Notice>
               )}
             </>
