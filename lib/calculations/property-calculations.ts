@@ -121,8 +121,19 @@ export interface DerivedProperty {
 
   costLines: CostLine[];
   totalMonthlyCosts: number | null;
+  /** Gesamtkosten ohne umsatzabhängige Zeilen (Provision, Kurtaxe). */
+  fixedMonthlyCosts: number | null;
+  /** Summe der umsatzabhängigen Kostenzeilen (Provision, Kurtaxe). */
+  variableMonthlyCosts: number | null;
   monthlyProfit: number | null;
   annualProfit: number | null;
+
+  /** Vermietete Nächte pro Monat, ab denen das Objekt profitabel ist. */
+  breakEvenNights: number | null;
+  /** Break-even-Nächte bezogen auf 30 Tage, in Prozent. */
+  breakEvenOccupancyPct: number | null;
+  /** Amortisationsdauer der Startinvestition in Monaten. */
+  paybackMonths: number | null;
 
   rentPerSqm: number | null;
   marketDeviation: number | null;
@@ -205,9 +216,51 @@ export function deriveProperty(input: PropertyInput): DerivedProperty {
     pushManual(extra.label || "Sonstige Kosten", extra.amount);
   }
 
+  // Plattformprovision: Prozent vom Monatsumsatz, nur berechenbar mit Umsatz.
+  const commissionPct = input.revenueAssumptions.platformCommissionPct;
+  const commissionAmount =
+    monthlyRev != null && commissionPct != null && commissionPct >= 0
+      ? monthlyRev * (commissionPct / 100)
+      : null;
+  if (commissionAmount != null) {
+    costLines.push({
+      label: `Plattformprovision (${commissionPct} %)`,
+      amount: commissionAmount,
+      source: "derived",
+    });
+  }
+
+  // Kurtaxe / Tourismusabgabe: optional, nur wenn ein Betrag eingegeben wurde.
+  // Formel: € pro Person und Nacht × Betten × vermietete Nächte pro Monat.
+  const touristTaxRate = input.costs.touristTaxPerPersonNight;
+  const touristTaxAmount =
+    touristTaxRate != null &&
+    touristTaxRate >= 0 &&
+    input.beds != null &&
+    input.beds > 0 &&
+    input.pricing.rentedDaysPerMonth != null &&
+    input.pricing.rentedDaysPerMonth >= 0
+      ? touristTaxRate * input.beds * input.pricing.rentedDaysPerMonth
+      : null;
+  if (touristTaxAmount != null) {
+    costLines.push({
+      label: "Kurtaxe / Tourismusabgabe",
+      amount: touristTaxAmount,
+      source: "derived",
+    });
+  }
+
   const totalMonthlyCosts =
     costLines.length > 0
       ? costLines.reduce((sum, line) => sum + line.amount, 0)
+      : null;
+
+  // Fixkosten = Gesamtkosten ohne umsatzabhängige Zeilen (Provision, Kurtaxe).
+  const variableMonthlyCosts =
+    (commissionAmount ?? 0) + (touristTaxAmount ?? 0);
+  const fixedMonthlyCosts =
+    totalMonthlyCosts != null
+      ? totalMonthlyCosts - variableMonthlyCosts
       : null;
 
   const monthlyProfit =
@@ -216,6 +269,40 @@ export function deriveProperty(input: PropertyInput): DerivedProperty {
       : null;
   const annualProfit =
     monthlyProfit != null ? monthlyProfit * MONTHS_PER_YEAR : null;
+
+  // Break-even-Auslastung: Ab wie vielen Nächten pro Monat trägt das Objekt?
+  // Deckungsbeitrag pro Nacht = Nachtpreis nach Provision − Kurtaxe pro Nacht.
+  // Provision und Kurtaxe gelten als variable Kosten, alles andere als fix.
+  let breakEvenNights: number | null = null;
+  let breakEvenOccupancyPct: number | null = null;
+  if (fixedMonthlyCosts != null && effPrice != null) {
+    const netPricePerNight =
+      commissionPct != null && commissionPct >= 0
+        ? effPrice * (1 - commissionPct / 100)
+        : effPrice;
+    const taxPerNight =
+      touristTaxRate != null && touristTaxRate >= 0
+        ? input.beds != null && input.beds > 0
+          ? touristTaxRate * input.beds
+          : null
+        : 0;
+    if (taxPerNight != null) {
+      const contributionPerNight = netPricePerNight - taxPerNight;
+      if (contributionPerNight > 0) {
+        breakEvenNights = fixedMonthlyCosts / contributionPerNight;
+        breakEvenOccupancyPct = (breakEvenNights / DAYS_PER_MONTH) * 100;
+      }
+    }
+  }
+
+  // Amortisation: Startinvestition / Monatsgewinn, nur bei positivem Gewinn.
+  const paybackMonths =
+    input.startInvestment != null &&
+    input.startInvestment > 0 &&
+    monthlyProfit != null &&
+    monthlyProfit > 0
+      ? input.startInvestment / monthlyProfit
+      : null;
 
   const rentSqm = rentPerSqm(input.costs.coldRent, input.areaSqm);
   const deviation = marketDeviation(rentSqm, input.marketRentPerSqm);
@@ -249,8 +336,13 @@ export function deriveProperty(input: PropertyInput): DerivedProperty {
     cleaningUsed,
     costLines,
     totalMonthlyCosts,
+    fixedMonthlyCosts,
+    variableMonthlyCosts: totalMonthlyCosts != null ? variableMonthlyCosts : null,
     monthlyProfit,
     annualProfit,
+    breakEvenNights,
+    breakEvenOccupancyPct,
+    paybackMonths,
     rentPerSqm: rentSqm,
     marketDeviation: deviation,
     areaProductivityMonthly: areaProdMonthly,
