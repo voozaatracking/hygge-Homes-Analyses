@@ -43,6 +43,24 @@ export const CLEANING_DEFAULTS = {
   changesPerMonth: 4,
 };
 
+export const REVENUE_DEFAULTS = {
+  /**
+   * Plattformprovision in Prozent des Umsatzes (Airbnb, Booking usw.).
+   * Startwert, im UI sichtbar und pro Objekt frei editierbar.
+   */
+  platformCommissionPct: 15,
+};
+
+/**
+ * Szenariofaktoren der Wirtschaftlichkeitsrechnung.
+ * Realistisch = eingegebene Werte. Pessimistisch und optimistisch skalieren
+ * Auslastung und Nachtpreis; die vermieteten Tage werden auf 0 bis 30 begrenzt.
+ */
+export const SCENARIO_FACTORS = {
+  pessimistic: { occupancyFactor: 0.8, priceFactor: 0.9 },
+  optimistic: { occupancyFactor: 1.2, priceFactor: 1.1 },
+};
+
 /** Toleranzen für Widerspruchswarnungen in der Standortanalyse. */
 export const LOCATION_CONFLICT_TOLERANCE = {
   /** Absolute Abweichung in Tagen zwischen manueller Eingabe und Ableitung. */
@@ -57,6 +75,11 @@ export function assumptionsSnapshot(): AssumptionsSnapshot {
     monthsPerYear: MONTHS_PER_YEAR,
     electricityDefaults: { ...ELECTRICITY_DEFAULTS },
     cleaningDefaults: { ...CLEANING_DEFAULTS },
+    revenueDefaults: { ...REVENUE_DEFAULTS },
+    scenarioFactors: {
+      pessimistic: { ...SCENARIO_FACTORS.pessimistic },
+      optimistic: { ...SCENARIO_FACTORS.optimistic },
+    },
     energyClassHRepresentative: ENERGY_CLASS_H_REPRESENTATIVE,
     belowFirstThresholdBehavior: BELOW_FIRST_THRESHOLD_BEHAVIOR,
   };
