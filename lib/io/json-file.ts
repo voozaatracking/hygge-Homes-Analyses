@@ -8,6 +8,7 @@ import type {
 import {
   assumptionsSnapshot,
   CALC_VERSION,
+  ELECTRICITY_DEFAULTS,
   LISTING_DEFAULTS,
   SCHEMA_VERSION,
 } from "@/lib/config/assumptions";
@@ -58,6 +59,10 @@ const propertySchema = z.object({
   electricityAssumptions: z.object({
     pricePerKwh: nullableNumber,
     surchargePct: nullableNumber,
+    /** Ab Einführung der eigenständigen Stromannahme. Ältere Dateien erhalten den Standardwert. */
+    consumptionKwhSqmMonth: nullableNumber.default(
+      ELECTRICITY_DEFAULTS.consumptionKwhSqmMonth
+    ),
   }),
   cleaningAssumptions: z.object({
     minutesPerSqm: nullableNumber,
