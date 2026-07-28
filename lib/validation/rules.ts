@@ -72,6 +72,24 @@ export function validateProperty(input: PropertyInput): FieldErrors {
     errors.consumptionKwhSqmMonth =
       "Der Stromverbrauch darf nicht negativ sein.";
   }
+  if (isSet(input.revenueAssumptions.platformCommissionPct)) {
+    const pct = input.revenueAssumptions.platformCommissionPct;
+    if (pct < 0 || pct > 100) {
+      errors.platformCommissionPct =
+        "Die Provision muss zwischen 0 und 100 Prozent liegen.";
+    }
+  }
+  if (
+    isSet(input.costs.touristTaxPerPersonNight) &&
+    input.costs.touristTaxPerPersonNight < 0
+  ) {
+    errors.touristTaxPerPersonNight =
+      "Die Kurtaxe darf nicht negativ sein.";
+  }
+  if (isSet(input.startInvestment) && input.startInvestment < 0) {
+    errors.startInvestment =
+      "Die Startinvestition darf nicht negativ sein.";
+  }
   if (isSet(input.cleaningAssumptions.minutesPerSqm) && input.cleaningAssumptions.minutesPerSqm <= 0) {
     errors.minutesPerSqm = "Die Reinigungszeit muss größer als 0 sein.";
   }
