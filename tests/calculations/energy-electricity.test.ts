@@ -9,25 +9,41 @@ import { deriveProperty } from "@/lib/calculations/property-calculations";
 import { emptyProperty } from "@/lib/utils";
 
 describe("Stromkosten (Testfall 7)", () => {
-  it("berechnet das dokumentierte Beispiel 120 kWh/qm auf 65 qm exakt nach", () => {
+  it("berechnet das Beispiel 2,08 kWh/qm pro Monat auf 65 qm exakt nach", () => {
     const result = calcElectricity({
-      consumptionKwhSqmYear: 120,
+      consumptionKwhSqmMonth: 2.08,
       areaSqm: 65,
       pricePerKwh: 0.35,
       surchargePct: 30,
     });
     expect(result).not.toBeNull();
-    expect(result!.annualKwh).toBe(7800);
-    expect(result!.annualCostNoSurcharge).toBeCloseTo(2730, 6);
-    expect(result!.annualCostWithSurcharge).toBeCloseTo(3549, 6);
-    expect(result!.monthlyCost).toBeCloseTo(295.75, 6);
+    expect(result!.monthlyKwh).toBeCloseTo(135.2, 6);
+    expect(result!.annualKwh).toBeCloseTo(1622.4, 6);
+    expect(result!.annualCostNoSurcharge).toBeCloseTo(567.84, 6);
+    expect(result!.annualCostWithSurcharge).toBeCloseTo(738.192, 6);
+    expect(result!.monthlyCost).toBeCloseTo(61.516, 6);
     expect(result!.lines.length).toBeGreaterThan(0);
+  });
+
+  it("ist unabhängig vom Energieausweis-Verbrauch (Heizenergie)", () => {
+    const sparsam = emptyProperty("Klasse A");
+    sparsam.areaSqm = 65;
+    sparsam.energy.consumption = 40;
+    const verschwenderisch = emptyProperty("Klasse H");
+    verschwenderisch.areaSqm = 65;
+    verschwenderisch.energy.consumption = 250;
+    const a = deriveProperty(sparsam);
+    const h = deriveProperty(verschwenderisch);
+    expect(a.electricityUsed!.amount).toBeCloseTo(
+      h.electricityUsed!.amount,
+      6
+    );
   });
 
   it("liefert null bei fehlenden oder negativen Eingaben", () => {
     expect(
       calcElectricity({
-        consumptionKwhSqmYear: null,
+        consumptionKwhSqmMonth: null,
         areaSqm: 65,
         pricePerKwh: 0.35,
         surchargePct: 30,
@@ -35,7 +51,7 @@ describe("Stromkosten (Testfall 7)", () => {
     ).toBeNull();
     expect(
       calcElectricity({
-        consumptionKwhSqmYear: 120,
+        consumptionKwhSqmMonth: 2.08,
         areaSqm: 65,
         pricePerKwh: -0.1,
         surchargePct: 30,
@@ -46,15 +62,13 @@ describe("Stromkosten (Testfall 7)", () => {
   it("verwendet manuelle Stromkosten nur bei aktiviertem Override und kennzeichnet die Quelle", () => {
     const auto = emptyProperty("Auto");
     auto.areaSqm = 65;
-    auto.energy.consumption = 120;
     const derivedAuto = deriveProperty(auto);
     expect(derivedAuto.electricityUsed).not.toBeNull();
     expect(derivedAuto.electricityUsed!.source).toBe("derived");
-    expect(derivedAuto.electricityUsed!.amount).toBeCloseTo(295.75, 6);
+    expect(derivedAuto.electricityUsed!.amount).toBeCloseTo(61.516, 6);
 
     const manual = emptyProperty("Manuell");
     manual.areaSqm = 65;
-    manual.energy.consumption = 120;
     manual.costs.useManualElectricity = true;
     manual.costs.electricityManual = 200;
     const derivedManual = deriveProperty(manual);
