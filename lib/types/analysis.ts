@@ -33,6 +33,12 @@ export interface ElectricityAssumptions {
   pricePerKwh: number | null;
   /** Aufschlag in Prozent, frei editierbar. */
   surchargePct: number | null;
+  /**
+   * Angenommener Stromverbrauch in kWh/qm pro Monat, frei editierbar.
+   * Bewusst unabhängig vom Energieausweis-Verbrauch: Dieser beschreibt
+   * den Heizenergiebedarf und ist keine Grundlage für die Stromrechnung.
+   */
+  consumptionKwhSqmMonth: number | null;
 }
 
 export interface CleaningAssumptions {
@@ -145,7 +151,11 @@ export type AnalysisMode = "object" | "location";
 export interface AssumptionsSnapshot {
   daysPerMonth: number;
   monthsPerYear: number;
-  electricityDefaults: { pricePerKwh: number; surchargePct: number };
+  electricityDefaults: {
+    pricePerKwh: number;
+    surchargePct: number;
+    consumptionKwhSqmMonth: number;
+  };
   cleaningDefaults: {
     minutesPerSqm: number;
     hourlyWage: number;
