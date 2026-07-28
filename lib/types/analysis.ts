@@ -47,6 +47,14 @@ export interface CleaningAssumptions {
   changesPerMonth: number | null;
 }
 
+export interface RevenueAssumptions {
+  /**
+   * Plattformprovision in Prozent des Umsatzes (Airbnb, Booking usw.),
+   * frei editierbar. Wird als eigene Kostenzeile vom Umsatz abgezogen.
+   */
+  platformCommissionPct: number | null;
+}
+
 export interface PropertyInput {
   id: string;
   name: string;
@@ -86,11 +94,24 @@ export interface PropertyInput {
     /** Manuelle Reinigungskosten pro Monat (nur genutzt, wenn useManualCleaning = true). */
     cleaningManual: number | null;
     useManualCleaning: boolean;
+    /**
+     * Kurtaxe / Tourismusabgabe in € pro Person und Nacht. Optional:
+     * Nur wenn ausgefüllt, entsteht eine Kostenzeile
+     * (Betrag × Betten × vermietete Nächte pro Monat).
+     */
+    touristTaxPerPersonNight: number | null;
     extras: CostItem[];
   };
 
   electricityAssumptions: ElectricityAssumptions;
   cleaningAssumptions: CleaningAssumptions;
+  revenueAssumptions: RevenueAssumptions;
+
+  /**
+   * Einmalige Startinvestition in € (Einrichtung, Kaution, Erstausstattung).
+   * Grundlage der Amortisationsrechnung.
+   */
+  startInvestment: number | null;
 
   /** Durchschnittlicher Markt-Mietpreis in €/qm, manuell recherchiert. */
   marketRentPerSqm: number | null;
@@ -160,6 +181,11 @@ export interface AssumptionsSnapshot {
     minutesPerSqm: number;
     hourlyWage: number;
     changesPerMonth: number;
+  };
+  revenueDefaults: { platformCommissionPct: number };
+  scenarioFactors: {
+    pessimistic: { occupancyFactor: number; priceFactor: number };
+    optimistic: { occupancyFactor: number; priceFactor: number };
   };
   energyClassHRepresentative: number;
   belowFirstThresholdBehavior: string;
