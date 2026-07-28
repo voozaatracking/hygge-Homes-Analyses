@@ -29,6 +29,12 @@ export const LISTING_DEFAULTS = {
 export const ELECTRICITY_DEFAULTS = {
   pricePerKwh: 0.35,
   surchargePct: 30,
+  /**
+   * Angenommener Stromverbrauch in kWh/qm pro Monat.
+   * Grundlage der Stromkostenformel; bewusst unabhängig vom
+   * Energieausweis-Verbrauch (dieser beschreibt den Heizenergiebedarf).
+   */
+  consumptionKwhSqmMonth: 2.08,
 };
 
 export const CLEANING_DEFAULTS = {
