@@ -65,6 +65,13 @@ export function validateProperty(input: PropertyInput): FieldErrors {
   if (isSet(input.electricityAssumptions.surchargePct) && input.electricityAssumptions.surchargePct < 0) {
     errors.surchargePct = "Der Aufschlag darf nicht negativ sein.";
   }
+  if (
+    isSet(input.electricityAssumptions.consumptionKwhSqmMonth) &&
+    input.electricityAssumptions.consumptionKwhSqmMonth < 0
+  ) {
+    errors.consumptionKwhSqmMonth =
+      "Der Stromverbrauch darf nicht negativ sein.";
+  }
   if (isSet(input.cleaningAssumptions.minutesPerSqm) && input.cleaningAssumptions.minutesPerSqm <= 0) {
     errors.minutesPerSqm = "Die Reinigungszeit muss größer als 0 sein.";
   }
