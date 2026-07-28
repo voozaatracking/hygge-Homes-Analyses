@@ -103,6 +103,24 @@ const columns: Column[] = [
     render: (r) => fmtEur(r.derived.monthlyProfit),
   },
   {
+    key: "breakEvenNights",
+    label: "Break-even (Nächte/Monat)",
+    value: (r) => r.derived.breakEvenNights,
+    render: (r) =>
+      r.derived.breakEvenNights != null
+        ? fmtNum(r.derived.breakEvenNights, 1)
+        : "nicht berechenbar",
+  },
+  {
+    key: "paybackMonths",
+    label: "Amortisation (Monate)",
+    value: (r) => r.derived.paybackMonths,
+    render: (r) =>
+      r.derived.paybackMonths != null
+        ? fmtNum(r.derived.paybackMonths, 1)
+        : "nicht berechenbar",
+  },
+  {
     key: "rentPerSqm",
     label: "Miete pro qm (€)",
     value: (r) => r.derived.rentPerSqm,

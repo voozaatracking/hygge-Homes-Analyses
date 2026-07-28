@@ -1,9 +1,11 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { EnergyClass, PropertyInput } from "@/lib/types/analysis";
 import { ENERGY_CLASSES } from "@/lib/types/analysis";
 import { deriveProperty } from "@/lib/calculations/property-calculations";
+import { deriveScenarios } from "@/lib/calculations/scenarios";
+import { PropertyReport } from "@/components/property-report";
 import { validateProperty } from "@/lib/validation/rules";
 import { fmtEur, fmtNum, fmtPct } from "@/lib/format";
 import { newId } from "@/lib/utils";
@@ -26,6 +28,16 @@ import {
   MetricsCard,
 } from "@/components/metrics-card";
 
+const TABS = [
+  { key: "basics", label: "Grunddaten & Energie" },
+  { key: "pricing", label: "Preis & Auslastung" },
+  { key: "costs", label: "Kosten" },
+  { key: "market", label: "Markt & Investition" },
+  { key: "results", label: "Ergebnis" },
+] as const;
+
+type TabKey = (typeof TABS)[number]["key"];
+
 export function PropertyForm({
   property,
   onChange,
@@ -38,8 +50,22 @@ export function PropertyForm({
   onDuplicate: () => void;
 }) {
   const [confirmRemove, setConfirmRemove] = useState(false);
+  const [printing, setPrinting] = useState(false);
+  const [activeTab, setActiveTab] = useState<TabKey>("basics");
   const derived = useMemo(() => deriveProperty(property), [property]);
+  const scenarios = useMemo(() => deriveScenarios(property), [property]);
   const errors = useMemo(() => validateProperty(property), [property]);
+
+  useEffect(() => {
+    if (!printing) return;
+    const done = () => setPrinting(false);
+    window.addEventListener("afterprint", done);
+    const timer = window.setTimeout(() => window.print(), 60);
+    return () => {
+      window.removeEventListener("afterprint", done);
+      window.clearTimeout(timer);
+    };
+  }, [printing]);
 
   const set = (updater: (draft: PropertyInput) => void) => {
     const next = structuredClone(property);
@@ -67,6 +93,9 @@ export function PropertyForm({
           />
         </div>
         <div className="flex gap-2 pt-6">
+          <Button variant="ghost" onClick={() => setPrinting(true)}>
+            Als PDF exportieren
+          </Button>
           <Button variant="ghost" onClick={onDuplicate}>
             Duplizieren
           </Button>
@@ -75,9 +104,89 @@ export function PropertyForm({
           </Button>
         </div>
       </div>
+      {printing ? (
+        <PropertyReport
+          property={property}
+          derived={derived}
+          scenarios={scenarios}
+        />
+      ) : null}
+
+      {/* Kennzahlen-Leiste: immer sichtbar, füllt sich mit den Eingaben */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+        <MetricsCard
+          label="Umsatz / Monat"
+          value={fmtEur(derived.monthlyRevenue)}
+        />
+        <MetricsCard
+          label="Kosten / Monat"
+          value={fmtEur(derived.totalMonthlyCosts)}
+        />
+        <MetricsCard
+          label="Gewinn / Monat"
+          value={fmtEur(derived.monthlyProfit)}
+          tone={profitTone}
+        />
+        <MetricsCard
+          label="Break-even"
+          value={
+            derived.breakEvenNights != null
+              ? `${fmtNum(derived.breakEvenNights, 1)} Nächte`
+              : "–"
+          }
+          tone={
+            derived.breakEvenNights == null
+              ? "neutral"
+              : derived.breakEvenNights > 30
+                ? "negative"
+                : "positive"
+          }
+        />
+        <MetricsCard
+          label="Bewertung"
+          value={
+            derived.score.complete && derived.score.total != null
+              ? (derived.score.label ?? fmtPct(derived.score.total))
+              : "unvollständig"
+          }
+          tone={
+            derived.score.complete && derived.score.total != null
+              ? derived.score.total >= 0.8
+                ? "positive"
+                : derived.score.total < 0.4
+                  ? "negative"
+                  : "neutral"
+              : "neutral"
+          }
+        />
+      </div>
+
+      {/* Tab-Navigation für die Eingabe-Kategorien */}
+      <div
+        className="flex flex-wrap gap-2 border-b border-line pb-3"
+        role="tablist"
+        aria-label="Eingabe-Kategorien"
+      >
+        {TABS.map((tab) => (
+          <button
+            key={tab.key}
+            type="button"
+            role="tab"
+            aria-selected={activeTab === tab.key}
+            onClick={() => setActiveTab(tab.key)}
+            className={`px-3 py-1.5 rounded-lg text-sm border transition-colors ${
+              activeTab === tab.key
+                ? "bg-ink text-white border-ink"
+                : "bg-card text-muted border-line hover:text-ink"
+            }`}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
 
       {/* Grunddaten */}
-      <div>
+      <div className={activeTab === "basics" ? undefined : "hidden"}>
         <SectionTitle hint="Basisangaben zur Unterkunft. Fläche, Schlafräume und Betten sind Pflichtwerte für die Bewertung.">
           Grunddaten
         </SectionTitle>
@@ -118,7 +227,7 @@ export function PropertyForm({
       </div>
 
       {/* Energie */}
-      <div>
+      <div className={activeTab === "basics" ? undefined : "hidden"}>
         <SectionTitle hint="Verbrauch oder Klasse eingeben. Der jeweils fehlende Wert wird automatisch abgeleitet und als solcher gekennzeichnet.">
           Energie
         </SectionTitle>
@@ -193,7 +302,7 @@ export function PropertyForm({
       </div>
 
       {/* Preis und Auslastung */}
-      <div>
+      <div className={activeTab === "pricing" ? undefined : "hidden"}>
         <SectionTitle hint="Standardlogik: 30 Tage pro Monat, 12 Monate pro Jahr.">
           Nachtpreis und Auslastung
         </SectionTitle>
@@ -284,7 +393,7 @@ export function PropertyForm({
       </div>
 
       {/* Kosten */}
-      <div>
+      <div className={activeTab === "costs" ? undefined : "hidden"}>
         <SectionTitle hint="Alle Kosten sind monatliche Beträge in Euro. Leere Felder werden nicht mitgezählt.">
           Monatliche Kosten
         </SectionTitle>
@@ -337,6 +446,16 @@ export function PropertyForm({
             value={property.costs.laundry}
             onChange={(v) => set((d) => (d.costs.laundry = v))}
             error={errors.laundry}
+          />
+          <NumberField
+            label="Kurtaxe / Tourismusabgabe (optional)"
+            unit="€/Person/Nacht"
+            value={property.costs.touristTaxPerPersonNight}
+            onChange={(v) =>
+              set((d) => (d.costs.touristTaxPerPersonNight = v))
+            }
+            error={errors.touristTaxPerPersonNight}
+            help="Nur ausfüllen, wenn am Standort eine Abgabe erhoben wird. Kostenzeile = Betrag × Betten × vermietete Nächte pro Monat."
           />
         </div>
 
@@ -564,6 +683,44 @@ export function PropertyForm({
           )}
         </div>
 
+        {/* Plattformprovision */}
+        <div className="mt-6 border border-line rounded-xl p-4 bg-card-soft/40 space-y-3">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h4 className="text-sm font-medium text-ink">Plattformprovision</h4>
+            {derived.variableMonthlyCosts != null &&
+            derived.monthlyRevenue != null &&
+            property.revenueAssumptions.platformCommissionPct != null ? (
+              <span className="flex items-center gap-2 text-sm tabular">
+                {fmtEur(
+                  derived.monthlyRevenue *
+                    (property.revenueAssumptions.platformCommissionPct / 100)
+                )}{" "}
+                / Monat
+                <SourceBadge source="derived" />
+              </span>
+            ) : (
+              <span className="text-sm text-muted">noch nicht berechenbar</span>
+            )}
+          </div>
+          <p className="text-xs text-muted">
+            Provision der Buchungsplattform (Airbnb, Booking usw.) in Prozent
+            des Umsatzes. Editierbare Annahme, Standard 15 %. Wird als eigene
+            Kostenzeile vom Umsatz abgezogen.
+          </p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <NumberField
+              label="Provision"
+              unit="%"
+              value={property.revenueAssumptions.platformCommissionPct}
+              onChange={(v) =>
+                set((d) => (d.revenueAssumptions.platformCommissionPct = v))
+              }
+              error={errors.platformCommissionPct}
+              help="0 eintragen, wenn ausschließlich direkt vermietet wird."
+            />
+          </div>
+        </div>
+
         {/* Summen */}
         <div className="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-3">
           <MetricsCard
@@ -599,8 +756,122 @@ export function PropertyForm({
         ) : null}
       </div>
 
+      {/* Wirtschaftlichkeit */}
+      <div className={activeTab === "results" ? undefined : "hidden"}>
+        <SectionTitle hint="Break-even und Szenarien. Provision und Kurtaxe gelten als variable Kosten pro Nacht, alle übrigen Kosten als fix. Die Startinvestition wird im Tab 'Markt & Investition' eingegeben.">
+          Wirtschaftlichkeit
+        </SectionTitle>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <MetricsCard
+            label="Break-even-Auslastung"
+            value={
+              derived.breakEvenNights != null
+                ? `${fmtNum(derived.breakEvenNights, 1)} Nächte/Monat`
+                : "nicht berechenbar"
+            }
+            sub={
+              derived.breakEvenNights == null
+                ? "Dafür werden Fixkosten und ein positiver Deckungsbeitrag pro Nacht benötigt."
+                : derived.breakEvenNights > 30
+                  ? "Über 30 Nächten: Bei diesen Kosten ist das Objekt selbst bei Vollauslastung nicht profitabel."
+                  : `Entspricht ${fmtNum(derived.breakEvenOccupancyPct, 0)} % Auslastung (Basis 30 Tage).`
+            }
+            tone={
+              derived.breakEvenNights == null
+                ? "neutral"
+                : derived.breakEvenNights > 30
+                  ? "negative"
+                  : "positive"
+            }
+          />
+          <MetricsCard
+            label="Amortisation"
+            value={
+              derived.paybackMonths != null
+                ? `${fmtNum(derived.paybackMonths, 1)} Monate`
+                : "nicht berechenbar"
+            }
+            sub={
+              derived.paybackMonths != null
+                ? "Startinvestition / Gewinn pro Monat"
+                : "Dafür werden eine Startinvestition (Tab 'Markt & Investition') und ein positiver Monatsgewinn benötigt."
+            }
+          />
+        </div>
+
+        {scenarios ? (
+          <div className="mt-4 overflow-x-auto">
+            <table className="w-full text-sm border border-line rounded-xl overflow-hidden">
+              <thead>
+                <tr className="bg-card-soft/60 text-left text-xs uppercase tracking-[0.08em] text-muted">
+                  <th className="px-3 py-2 font-medium">Szenario</th>
+                  <th className="px-3 py-2 font-medium">Annahme</th>
+                  <th className="px-3 py-2 font-medium text-right">
+                    Nächte/Monat
+                  </th>
+                  <th className="px-3 py-2 font-medium text-right">
+                    Nachtpreis
+                  </th>
+                  <th className="px-3 py-2 font-medium text-right">
+                    Umsatz/Monat
+                  </th>
+                  <th className="px-3 py-2 font-medium text-right">
+                    Gewinn/Monat
+                  </th>
+                  <th className="px-3 py-2 font-medium text-right">
+                    Gewinn/Jahr
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {scenarios.map((s) => (
+                  <tr key={s.key} className="border-t border-line">
+                    <td className="px-3 py-2 font-medium text-ink">
+                      {s.label}
+                    </td>
+                    <td className="px-3 py-2 text-muted">
+                      {s.key === "base"
+                        ? "eingegebene Werte"
+                        : `Auslastung × ${fmtNum(s.occupancyFactor, 1)}, Preis × ${fmtNum(s.priceFactor, 1)}`}
+                    </td>
+                    <td className="px-3 py-2 text-right tabular">
+                      {fmtNum(s.rentedDaysPerMonth, 1)}
+                    </td>
+                    <td className="px-3 py-2 text-right tabular">
+                      {fmtEur(s.nightPrice)}
+                    </td>
+                    <td className="px-3 py-2 text-right tabular">
+                      {fmtEur(s.monthlyRevenue)}
+                    </td>
+                    <td
+                      className={`px-3 py-2 text-right tabular ${
+                        s.monthlyProfit != null && s.monthlyProfit < 0
+                          ? "text-brick"
+                          : "text-sage"
+                      }`}
+                    >
+                      {fmtEur(s.monthlyProfit)}
+                    </td>
+                    <td className="px-3 py-2 text-right tabular">
+                      {fmtEur(s.annualProfit)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <div className="mt-4">
+            <Notice kind="info">
+              Für die Szenariorechnung fehlen noch Nachtpreis oder vermietete
+              Tage pro Monat.
+            </Notice>
+          </div>
+        )}
+      </div>
+
       {/* Marktpreis */}
-      <div>
+      <div className={activeTab === "market" ? undefined : "hidden"}>
         <SectionTitle hint="Der Vergleichswert wird manuell recherchiert und eingegeben. Es findet keine automatische Datenübernahme statt.">
           Marktpreis
         </SectionTitle>
@@ -650,10 +921,40 @@ export function PropertyForm({
             }
           />
         </div>
+
+        {/* Investition */}
+        <div className="mt-6">
+          <SectionTitle hint="Einmalige Kosten vor dem Start. Grundlage der Amortisationsrechnung im Ergebnis-Tab.">
+            Investition
+          </SectionTitle>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-start">
+            <NumberField
+              label="Startinvestition (einmalig)"
+              unit="€"
+              value={property.startInvestment}
+              onChange={(v) => set((d) => (d.startInvestment = v))}
+              error={errors.startInvestment}
+              help="Einrichtung, Kaution, Erstausstattung."
+            />
+            <MetricsCard
+              label="Amortisation"
+              value={
+                derived.paybackMonths != null
+                  ? `${fmtNum(derived.paybackMonths, 1)} Monate`
+                  : "nicht berechenbar"
+              }
+              sub={
+                derived.paybackMonths != null
+                  ? "Startinvestition / Gewinn pro Monat"
+                  : "Dafür werden eine Startinvestition und ein positiver Monatsgewinn benötigt."
+              }
+            />
+          </div>
+        </div>
       </div>
 
       {/* Weitere Kennzahlen */}
-      <div>
+      <div className={activeTab === "results" ? undefined : "hidden"}>
         <SectionTitle hint="Produktivitätskennzahlen der Unterkunft. Monats- und Jahreswerte sind entsprechend gekennzeichnet.">
           Weitere Kennzahlen
         </SectionTitle>
@@ -707,7 +1008,7 @@ export function PropertyForm({
       </div>
 
       {/* Bewertung */}
-      <div>
+      <div className={activeTab === "results" ? undefined : "hidden"}>
         <SectionTitle hint="Gewichtete Summe aus fünf normierten Faktoren (Skala 0 bis 1). Normierung und Gewichte stammen aus der bestehenden Normierungstabelle.">
           Objektbewertung
         </SectionTitle>
