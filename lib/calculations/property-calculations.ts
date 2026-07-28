@@ -155,7 +155,7 @@ export function deriveProperty(input: PropertyInput): DerivedProperty {
   const annualRev = annualRevenue(monthlyRev);
 
   const electricityAuto = calcElectricity({
-    consumptionKwhSqmYear: energy.consumption,
+    consumptionKwhSqmMonth: input.electricityAssumptions.consumptionKwhSqmMonth,
     areaSqm: input.areaSqm,
     pricePerKwh: input.electricityAssumptions.pricePerKwh,
     surchargePct: input.electricityAssumptions.surchargePct,
