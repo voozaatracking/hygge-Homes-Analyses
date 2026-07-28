@@ -7,6 +7,7 @@ import {
   CLEANING_DEFAULTS,
   ELECTRICITY_DEFAULTS,
   LISTING_DEFAULTS,
+  REVENUE_DEFAULTS,
   WEEKS_PER_YEAR,
 } from "@/lib/config/assumptions";
 
@@ -40,10 +41,13 @@ export function emptyProperty(name: string): PropertyInput {
       useManualElectricity: false,
       cleaningManual: null,
       useManualCleaning: false,
+      touristTaxPerPersonNight: null,
       extras: [],
     },
     electricityAssumptions: { ...ELECTRICITY_DEFAULTS },
     cleaningAssumptions: { ...CLEANING_DEFAULTS },
+    revenueAssumptions: { ...REVENUE_DEFAULTS },
+    startInvestment: null,
     marketRentPerSqm: null,
     highlighted: false,
   };
