@@ -26,8 +26,18 @@ export function BasicsSection({
         />
         <TextField
           label="Standort / Adresse (optional)"
-          value={property.address}
-          onChange={(v) => set((d) => (d.address = v))}
+          value={property.address.text}
+          onChange={(v) =>
+            set((d) => {
+              // Koordinaten gelten nur für den Text, zu dem sie ermittelt wurden.
+              if (v !== d.address.text) {
+                d.address.lat = null;
+                d.address.lng = null;
+              }
+              d.address.text = v;
+            })
+          }
+          help="Mit Koordinaten (Tab Kosten, „Koordinaten ermitteln“) wird die Entfernung zum Firmensitz berechnet."
           placeholder="Stadt, Straße"
         />
         <NumberField

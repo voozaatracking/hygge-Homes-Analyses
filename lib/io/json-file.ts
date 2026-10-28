@@ -18,6 +18,33 @@ import { ENERGY_CLASSES, TOURIST_TAX_MODES } from "@/lib/types/analysis";
 
 const nullableNumber = z.number().nullable();
 
+/**
+ * Adresse mit Koordinaten. Ältere Dateien speichern die Adresse als Text;
+ * der wird ohne Koordinaten übernommen.
+ */
+const geoAddressSchema = z.preprocess(
+  (value) =>
+    typeof value === "string" ? { text: value, lat: null, lng: null } : value,
+  z.object({
+    text: z.string().default(""),
+    lat: nullableNumber.default(null),
+    lng: nullableNumber.default(null),
+  })
+);
+
+/** Ab Einführung der Fahrtkosten. Ältere Dateien: deaktiviert mit Defaults. */
+const travelSchema = z
+  .object({
+    enabled: z.boolean().default(false),
+    originMode: z.enum(["hq", "custom"]).default("hq"),
+    customOrigin: geoAddressSchema.default({ text: "", lat: null, lng: null }),
+    costMode: z.enum(["perKm", "perTrip"]).default("perKm"),
+    ratePerKm: nullableNumber.default(null),
+    pricePerTrip: nullableNumber.default(null),
+    tripsPerMonth: nullableNumber.default(null),
+  })
+  .prefault({});
+
 const costItemSchema = z.object({
   id: z.string(),
   label: z.string(),
@@ -28,7 +55,8 @@ const propertySchema = z.object({
   id: z.string(),
   name: z.string(),
   listingUrl: z.string().default(""),
-  address: z.string().default(""),
+  address: geoAddressSchema.default({ text: "", lat: null, lng: null }),
+  travel: travelSchema,
   areaSqm: nullableNumber,
   bedrooms: nullableNumber,
   beds: nullableNumber,

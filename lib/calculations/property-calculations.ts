@@ -5,6 +5,7 @@ import { calcCleaning, type CleaningResult } from "@/lib/calculations/cleaning";
 import { effectiveEnergy, type EffectiveEnergy } from "@/lib/calculations/energy";
 import { scoreProperty, type ScoreResult } from "@/lib/calculations/scoring";
 import { fmtPctLabel } from "@/lib/format";
+import { estimatedRouteKm, isLatLng, type LatLng } from "@/lib/geo/distance";
 
 /** Sichere Division: null bei fehlenden Werten oder Divisor <= 0. */
 export function safeDiv(
@@ -184,6 +185,117 @@ export function deriveTouristTax(
   return { label: baseLabel, amount: perNight * daysValid, perNight, note: null };
 }
 
+/**
+ * Kontext außerhalb des Objekts, den die Ableitung braucht, ohne IO:
+ * die Koordinaten des Firmensitzes aus dem Profil (für Entfernung und Fahrtkosten).
+ */
+export interface DeriveContext {
+  hq: LatLng | null;
+}
+
+export const EMPTY_CONTEXT: DeriveContext = { hq: null };
+
+/** Entfernung des Objekts zum Ausgangspunkt (Firmensitz oder eigene Adresse). */
+export interface DistanceResult {
+  /** Geschätzte Fahrstrecke in km (Luftlinie × Umwegfaktor); null wenn nicht berechenbar. */
+  km: number | null;
+  source: "hq" | "custom";
+  /** Hinweis, wenn eine Seite der Strecke keine Koordinaten hat. */
+  note: string | null;
+}
+
+/** Fahrtkosten für die Reinigung (Fixkosten). */
+export interface TravelResult {
+  /** Monatliche Kostenzeile; null wenn deaktiviert, 0 oder nicht berechenbar. */
+  amount: number | null;
+  /** Verwendete Fahrten pro Monat (eingegeben oder Default aus der Reinigung). */
+  tripsPerMonth: number | null;
+  /** Hinweis, wenn aktiviert, aber Koordinaten, Satz oder Fahrten fehlen. */
+  note: string | null;
+}
+
+/**
+ * Entfernung zum Ausgangspunkt. Zum Firmensitz immer, sobald Objekt- und
+ * HQ-Koordinaten vorliegen; bei aktivierten Fahrtkosten mit eigener Adresse
+ * zu dieser Adresse.
+ */
+export function deriveDistance(
+  input: PropertyInput,
+  context: DeriveContext
+): DistanceResult {
+  const useCustom = input.travel.enabled && input.travel.originMode === "custom";
+  const source: DistanceResult["source"] = useCustom ? "custom" : "hq";
+  const origin = useCustom ? input.travel.customOrigin : context.hq;
+  const target = input.address;
+
+  const missing: string[] = [];
+  if (!isLatLng(target)) missing.push("Koordinaten des Objekts");
+  if (!isLatLng(origin)) {
+    missing.push(
+      useCustom
+        ? "Koordinaten des Ausgangspunkts"
+        : "Koordinaten des Firmensitzes (im Profil ermitteln)"
+    );
+  }
+  if (!isLatLng(target) || !isLatLng(origin)) {
+    return {
+      km: null,
+      source,
+      note: `Entfernung nicht berechenbar: ${missing.join(" und ")} ${missing.length > 1 ? "fehlen" : "fehlen"}.`,
+    };
+  }
+  return { km: estimatedRouteKm(origin, target), source, note: null };
+}
+
+/**
+ * Fahrtkosten für die Reinigung, nur wenn aktiviert. Wert 0 bedeutet keine
+ * Kostenzeile. Fahrten pro Monat leer: Reinigungen pro Monat des Objekts.
+ */
+export function deriveTravel(
+  input: PropertyInput,
+  distance: DistanceResult
+): TravelResult {
+  const t = input.travel;
+  const none: TravelResult = { amount: null, tripsPerMonth: null, note: null };
+  if (!t.enabled) return none;
+
+  const trips =
+    t.tripsPerMonth != null
+      ? t.tripsPerMonth
+      : input.cleaningAssumptions.changesPerMonth;
+  const notApplied = (reason: string): TravelResult => ({
+    amount: null,
+    tripsPerMonth: trips != null && trips >= 0 ? trips : null,
+    note: `Fahrtkosten werden nicht berücksichtigt: ${reason}.`,
+  });
+
+  if (trips == null || trips < 0) {
+    return notApplied("Fahrten pro Monat fehlen");
+  }
+
+  if (t.costMode === "perTrip") {
+    if (t.pricePerTrip == null || t.pricePerTrip < 0) {
+      return notApplied("Preis je Fahrt fehlt");
+    }
+    const amount = t.pricePerTrip * trips;
+    return { amount: amount > 0 ? amount : null, tripsPerMonth: trips, note: null };
+  }
+
+  if (t.ratePerKm == null || t.ratePerKm < 0) {
+    return notApplied("Kilometerpauschale fehlt");
+  }
+  if (distance.km == null) {
+    return notApplied(
+      distance.source === "custom"
+        ? "Koordinaten des Objekts oder des Ausgangspunkts fehlen"
+        : "Koordinaten des Objekts oder des Firmensitzes fehlen"
+    );
+  }
+  // Hin und zurück je Fahrt.
+  const amount = distance.km * 2 * t.ratePerKm * trips;
+  return { amount: amount > 0 ? amount : null, tripsPerMonth: trips, note: null };
+}
+
 export interface DerivedProperty {
   energy: EffectiveEnergy;
 
@@ -202,6 +314,10 @@ export interface DerivedProperty {
   costLines: CostLine[];
   /** Kurtaxe-Ableitung inklusive Hinweis bei fehlenden Eingaben. */
   touristTax: TouristTaxResult;
+  /** Entfernung zum Ausgangspunkt (geschätzt aus Luftlinie). */
+  distance: DistanceResult;
+  /** Fahrtkosten für die Reinigung inklusive Hinweis. */
+  travel: TravelResult;
   totalMonthlyCosts: number | null;
   /** Gesamtkosten ohne umsatzabhängige Zeilen (Provision, Kurtaxe). */
   fixedMonthlyCosts: number | null;
@@ -233,7 +349,10 @@ export interface DerivedProperty {
  * Zentrale Ableitung aller Kennzahlen eines Objekts.
  * Einzige Quelle für UI, Vergleichstabelle und Exporte.
  */
-export function deriveProperty(input: PropertyInput): DerivedProperty {
+export function deriveProperty(
+  input: PropertyInput,
+  context: DeriveContext = EMPTY_CONTEXT
+): DerivedProperty {
   const energy = effectiveEnergy(input.energy);
 
   const effPrice = effectiveNightPrice({
@@ -293,6 +412,16 @@ export function deriveProperty(input: PropertyInput): DerivedProperty {
   pushManual("Wäsche", input.costs.laundry);
   if (cleaningUsed) {
     costLines.push({ label: "Reinigung", ...cleaningUsed });
+  }
+  // Fahrtkosten für die Reinigung: Fixkosten wie die Reinigung selbst.
+  const distance = deriveDistance(input, context);
+  const travel = deriveTravel(input, distance);
+  if (travel.amount != null) {
+    costLines.push({
+      label: "Fahrtkosten Reinigung",
+      amount: travel.amount,
+      source: "derived",
+    });
   }
   for (const extra of input.costs.extras) {
     pushManual(extra.label || "Sonstige Kosten", extra.amount);
@@ -409,6 +538,8 @@ export function deriveProperty(input: PropertyInput): DerivedProperty {
     cleaningUsed,
     costLines,
     touristTax,
+    distance,
+    travel,
     totalMonthlyCosts,
     fixedMonthlyCosts,
     variableMonthlyCosts: totalMonthlyCosts != null ? variableMonthlyCosts : null,

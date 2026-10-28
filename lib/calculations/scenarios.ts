@@ -1,6 +1,6 @@
 import type { PropertyInput } from "@/lib/types/analysis";
 import { DAYS_PER_MONTH, SCENARIO_FACTORS } from "@/lib/config/assumptions";
-import { deriveProperty } from "@/lib/calculations/property-calculations";
+import { deriveProperty, type DeriveContext } from "@/lib/calculations/property-calculations";
 
 export type ScenarioKey = "pessimistic" | "base" | "optimistic";
 
@@ -46,7 +46,8 @@ const SCENARIO_DEFS: {
  * Gibt null zurück, wenn Nachtpreis oder vermietete Nächte fehlen.
  */
 export function deriveScenarios(
-  input: PropertyInput
+  input: PropertyInput,
+  context?: DeriveContext
 ): ScenarioResult[] | null {
   const { nightPrice, rentedDaysPerMonth } = input.pricing;
   if (
@@ -68,7 +69,7 @@ export function deriveScenarios(
     const clone = structuredClone(input);
     clone.pricing.nightPrice = scaledPrice;
     clone.pricing.rentedDaysPerMonth = scaledDays;
-    const derived = deriveProperty(clone);
+    const derived = deriveProperty(clone, context);
     return {
       key: def.key,
       label: def.label,

@@ -159,6 +159,48 @@ describe("JSON-Export und Re-Import (Testfall 18)", () => {
     expect(parsed.data!.objects[0]).toEqual(p);
   });
 
+  it("lädt ältere Dateien mit Adresse als Text und ohne Fahrtkosten", () => {
+    const p = emptyProperty("Altes Objekt");
+    const file = buildAnalysisFile([p], [], "object");
+    const raw = JSON.parse(JSON.stringify(file)) as {
+      objects: Record<string, unknown>[];
+    };
+    raw.objects[0].address = "Lüneburg, Altstadt";
+    delete raw.objects[0].travel;
+
+    const parsed = parseAnalysisFile(JSON.stringify(raw));
+    expect(parsed.ok).toBe(true);
+    const loaded = parsed.data!.objects[0];
+    expect(loaded.address).toEqual({ text: "Lüneburg, Altstadt", lat: null, lng: null });
+    expect(loaded.travel).toEqual({
+      enabled: false,
+      originMode: "hq",
+      customOrigin: { text: "", lat: null, lng: null },
+      costMode: "perKm",
+      ratePerKm: null,
+      pricePerTrip: null,
+      tripsPerMonth: null,
+    });
+  });
+
+  it("exportiert und importiert Adresse mit Koordinaten und Fahrtkosten", () => {
+    const p = emptyProperty("Objekt mit Fahrt");
+    p.address = { text: "Hamburg", lat: 53.55, lng: 9.99 };
+    p.travel = {
+      enabled: true,
+      originMode: "custom",
+      customOrigin: { text: "Berlin", lat: 52.5, lng: 13.4 },
+      costMode: "perTrip",
+      ratePerKm: null,
+      pricePerTrip: 30,
+      tripsPerMonth: 5,
+    };
+    const file = buildAnalysisFile([p], [], "object");
+    const parsed = parseAnalysisFile(JSON.stringify(file));
+    expect(parsed.ok).toBe(true);
+    expect(parsed.data!.objects[0]).toEqual(p);
+  });
+
   it("lehnt ungültige Dateien mit verständlicher Fehlermeldung ab", () => {
     expect(parseAnalysisFile("kein json").ok).toBe(false);
     const invalid = parseAnalysisFile(

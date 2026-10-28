@@ -1,7 +1,9 @@
 import type {
+  GeoAddress,
   ListingInput,
   LocationInput,
   PropertyInput,
+  TravelInput,
 } from "@/lib/types/analysis";
 import {
   CLEANING_DEFAULTS,
@@ -44,7 +46,8 @@ export function emptyProperty(
     id: newId(),
     name,
     listingUrl: "",
-    address: "",
+    address: emptyAddress(),
+    travel: emptyTravel(),
     areaSqm: null,
     bedrooms: null,
     beds: null,
@@ -75,6 +78,22 @@ export function emptyProperty(
     startInvestment: null,
     marketRentPerSqm: null,
     highlighted: false,
+  };
+}
+
+export function emptyAddress(text = ""): GeoAddress {
+  return { text, lat: null, lng: null };
+}
+
+export function emptyTravel(): TravelInput {
+  return {
+    enabled: false,
+    originMode: "hq",
+    customOrigin: emptyAddress(),
+    costMode: "perKm",
+    ratePerKm: null,
+    pricePerTrip: null,
+    tripsPerMonth: null,
   };
 }
 

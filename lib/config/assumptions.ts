@@ -21,6 +21,13 @@ export const MONTHS_PER_YEAR = 12;
 export const WEEKS_PER_YEAR = 52;
 export const NIGHTS_PER_YEAR = 364;
 
+/**
+ * Umwegfaktor der Entfernungsschätzung: Fahrstrecke = Luftlinie × 1,3.
+ * Feste Konstante, keine Einstellung im UI; im UI als "geschätzt aus
+ * Luftlinie" gekennzeichnet.
+ */
+export const DETOUR_FACTOR = 1.3;
+
 /** Startwert der KW-Analyse: Gästewechsel pro Woche (Excel: 2 → 104 Reinigungen pro Jahr). */
 export const LISTING_DEFAULTS = {
   changesPerWeek: 2,

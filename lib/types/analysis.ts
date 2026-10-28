@@ -63,11 +63,39 @@ export const TOURIST_TAX_MODES: TouristTaxMode[] = [
   "percentOfPrice",
 ];
 
+/** Adresse mit optionalen Koordinaten (nur serverseitig ermittelt, siehe /api/geocode). */
+export interface GeoAddress {
+  text: string;
+  lat: number | null;
+  lng: number | null;
+}
+
+export type TravelOriginMode = "hq" | "custom";
+export type TravelCostMode = "perKm" | "perTrip";
+
+/**
+ * Fahrtkosten für die Reinigung (Fixkosten, nicht umsatzabhängig).
+ * - perKm: Strecke × 2 (Hin und zurück) × Satz × Fahrten pro Monat
+ * - perTrip: Fixpreis je Fahrt (Hin und zurück) × Fahrten pro Monat
+ * tripsPerMonth leer bedeutet: Reinigungen pro Monat des Objekts.
+ */
+export interface TravelInput {
+  enabled: boolean;
+  originMode: TravelOriginMode;
+  customOrigin: GeoAddress;
+  costMode: TravelCostMode;
+  ratePerKm: number | null;
+  pricePerTrip: number | null;
+  tripsPerMonth: number | null;
+}
+
 export interface PropertyInput {
   id: string;
   name: string;
   listingUrl: string;
-  address: string;
+  /** Standort des Objekts; Koordinaten optional für Entfernung und Fahrtkosten. */
+  address: GeoAddress;
+  travel: TravelInput;
 
   areaSqm: number | null;
   bedrooms: number | null;

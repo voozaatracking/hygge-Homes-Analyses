@@ -1,5 +1,7 @@
 "use client";
 
+import { useAnalysis } from "@/components/providers";
+
 import {
   Bar,
   BarChart,
@@ -37,9 +39,10 @@ export function PropertyCharts({
 }: {
   properties: PropertyInput[];
 }) {
+  const { deriveContext } = useAnalysis();
   const data = properties
     .map((p) => {
-      const d = deriveProperty(p);
+      const d = deriveProperty(p, deriveContext);
       return {
         name: p.name || "Ohne Namen",
         Umsatz: d.monthlyRevenue,

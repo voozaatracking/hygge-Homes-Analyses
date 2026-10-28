@@ -152,7 +152,7 @@ export function buildPropertiesFromMatrix(
 
     const name = cellToText(get(row, "name"));
     const property = emptyProperty(name || `Importiertes Objekt ${rowNumber}`);
-    property.address = cellToText(get(row, "address"));
+    property.address.text = cellToText(get(row, "address"));
     property.listingUrl = cellToText(get(row, "listingUrl"));
 
     const numeric = (key: string, label: string): number | null => {

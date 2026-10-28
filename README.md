@@ -92,6 +92,13 @@ Unter `/profil` pflegt jeder Nutzer sein Konto (Anzeigename, Passwort), Standard
 - Standardannahmen gelten für neue Objekte und Standorte (`emptyProperty`, `emptyLocation` mit Profil-Defaults). Bestehende Objekte, Duplikate und importierte Dateien bleiben unverändert.
 - Logo: PNG, JPEG oder SVG als Data-URL, maximal 300 KB nach clientseitiger Verkleinerung. Kein Storage-Bucket in dieser Phase.
 
+## Entfernung und Fahrtkosten
+
+- Objekte haben eine Adresse mit optionalen Koordinaten (Tab Kosten, „Koordinaten ermitteln“, serverseitig über `/api/geocode`). Koordinaten gelten nur für den Adresstext, zu dem sie ermittelt wurden.
+- Entfernung zum Firmensitz: Luftlinie (Haversine) × Umwegfaktor `DETOUR_FACTOR` = 1,3 (`lib/config/assumptions.ts`, `lib/geo/distance.ts`). Keine Einstellung im UI und keine manuelle Kilometerüberschreibung; im UI als „geschätzt aus Luftlinie“ gekennzeichnet. Berechnet, sobald Objekt- und Firmensitz-Koordinaten vorliegen, auch ohne Fahrtkosten. Erscheint im Report und in der Vergleichstabelle.
+- Fahrtkosten für die Reinigung (optional, Haken „Fahrtkosten für Reinigung einrechnen“): Ausgangspunkt Firmensitz oder eigene Adresse; Kilometerpauschale = Strecke × 2 (Hin und zurück) × Satz × Fahrten pro Monat, oder Fixpreis je Fahrt (Hin und zurück) × Fahrten. Fahrten pro Monat leer bedeutet Reinigungen pro Monat des Objekts. Kostenzeile „Fahrtkosten Reinigung“ zählt als Fixkosten (wie die Reinigung), nicht umsatzabhängig. Wert 0 bedeutet keine Kostenzeile. Fehlen Koordinaten, Satz oder Fahrten, erscheint am Feld ein Hinweis.
+- Die Rechenlogik bleibt frei von IO: `deriveProperty(input, context)` bekommt die Firmensitz-Koordinaten als Parameter (`DeriveContext`), der Provider stellt sie aus dem Profil bereit.
+
 ## Geokodierung
 
 Adressen (Firmensitz, später Objekte) werden nur serverseitig über `POST /api/geocode` in Koordinaten umgesetzt (`lib/geo/geocode.ts`, Anbieter austauschbar). Koordinaten werden zusammen mit dem Adresstext gespeichert und nur neu ermittelt, wenn sich der Text ändert.
