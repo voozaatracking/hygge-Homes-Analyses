@@ -21,7 +21,7 @@ import { ExcelImportDialog } from "@/components/excel-import";
  * Bereich zurücksetzen, Kurzhilfe.
  */
 export function Toolbar({ mode }: { mode: AnalysisMode }) {
-  const { state, dispatch } = useAnalysis();
+  const { state, dispatch, sync } = useAnalysis();
   const jsonInputRef = useRef<HTMLInputElement>(null);
 
   const [excelOpen, setExcelOpen] = useState(false);
@@ -144,8 +144,9 @@ export function Toolbar({ mode }: { mode: AnalysisMode }) {
 
       {state.dirty && hasAnyData ? (
         <p className="text-xs text-muted">
-          Ungespeicherte Änderungen. Die Daten liegen nur im Browser, zum
-          Sichern „Als JSON speichern“ verwenden.
+          {sync.status === "synced" || sync.status === "saving"
+            ? "Änderungen werden automatisch in der Cloud gespeichert. Für eine dauerhafte Sicherung zusätzlich „Als JSON speichern“ verwenden."
+            : "Ungespeicherte Änderungen. Ohne Cloud-Speicherung liegen die Daten nur im Browser, zum Sichern „Als JSON speichern“ verwenden."}
         </p>
       ) : null}
 
@@ -197,8 +198,9 @@ export function Toolbar({ mode }: { mode: AnalysisMode }) {
               und eingetragen, es gibt keinen automatischen Abruf.
             </li>
             <li>
-              Alle Daten bleiben im Browser. Gespeichert wird ausschließlich
-              über den JSON-Export, geladen über „JSON laden“.
+              Der Datenstand wird je Nutzer in der Cloud gespeichert und im
+              Browser zwischengespeichert. Der JSON-Export bleibt die dauerhafte
+              Sicherung, geladen wird über „JSON laden“.
             </li>
           </ul>
         </div>
