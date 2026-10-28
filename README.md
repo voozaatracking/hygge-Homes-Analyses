@@ -35,9 +35,11 @@ npm run build      # Produktions-Build
    | Variable | Zweck |
    | --- | --- |
    | `NEXT_PUBLIC_SUPABASE_URL` | Project URL des Supabase-Projekts |
-   | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Anon-Key (per Design öffentlich; Tabellen sind durch Row Level Security ohne Policies nicht erreichbar, der Key dient nur der Anmeldung) |
-   | `SUPABASE_SERVICE_ROLE_KEY` | service_role-Key; nur serverseitig für Datenzugriff und Nutzerverwaltung, gelangt nie in den Browser |
+   | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Öffentlicher Schlüssel: alter anon-Key (JWT) oder neuer `sb_publishable_…`-Key. Per Design öffentlich; Tabellen sind durch Row Level Security ohne Policies nicht erreichbar, der Key dient nur der Anmeldung |
+   | `SUPABASE_SERVICE_ROLE_KEY` | Serverschlüssel: alter service_role-Key (JWT) oder neuer `sb_secret_…`-Key; nur serverseitig für Datenzugriff und Nutzerverwaltung, gelangt nie in den Browser |
    | `CRON_SECRET` | Schützt `/api/cron/keepalive`; Vercel sendet den Wert automatisch als Bearer-Token beim täglichen Cron-Aufruf (`vercel.json`), der das Supabase-Free-Projekt vor dem Pausieren bewahrt |
+
+   Supabase stellt von JWT-Schlüsseln auf neue API-Schlüssel um; beide Formate funktionieren mit denselben Variablennamen (`lib/supabase/keys.ts`). Ein `sb_secret_`-Key in der öffentlichen Variable oder ein `sb_publishable_`-Key als Serverschlüssel wird abgewiesen und im Server-Log gemeldet.
 
    `SITE_PASSWORD` aus der alten Nutzerverwaltung wird nicht mehr gelesen und kann entfernt werden. Ohne die Supabase-Variablen leitet die Produktion auf die Login-Seite und meldet die fehlende Konfiguration.
 4. Jeder Push auf `main` erzeugt ein neues Deployment.
@@ -105,6 +107,14 @@ Unter `/profil` pflegt jeder Nutzer sein Konto (Anzeigename, Passwort), Standard
 - Kopf (`components/report/report-header.tsx`): Logo, Firmenname und Adresse aus dem Profil; Fuß (`components/report/report-footer.tsx`): Kontakt, Registerangaben, Datum, Hinweistext. Fehlende Felder werden nicht gerendert. Primär- und Sekundärfarbe wirken nur als Akzente (Überschriften, Linien, Tabellenkopf); ohne Farben greifen die App-Farben. Beide Komponenten sind für die Standortanalyse wiederverwendbar.
 - Sektionen mit stabilen Kennungen (`lib/report/sections.ts`): `basics`, `revenue`, `costs`, `results`, `scenarios`. Die Standardauswahl und die Kopf-/Fußbestandteile stehen in `profiles.settings.report` (Bereich „Report“ auf `/profil`).
 - Druck: `@page` A4 mit 15 mm Rand, Navigation und Bedienelemente ausgeblendet, Seitenumbrüche nur zwischen Sektionen (`break-inside: avoid`), Farben per `print-color-adjust: exact`.
+
+## Sicherheit, Rechtsseiten und Betrieb
+
+- **Security-Header** (`lib/security-headers.ts`, `next.config.ts`): Content-Security-Policy mit Supabase (Projekt-URL aus `NEXT_PUBLIC_SUPABASE_URL`, sonst `*.supabase.co`) und Nominatim als erlaubten Zielen, `frame-ancestors 'none'`, X-Frame-Options, X-Content-Type-Options, Referrer-Policy, Permissions-Policy; Strict-Transport-Security nur in Produktion (`VERCEL_ENV=production`). Preview lässt die Vercel-Toolbar (`vercel.live`) zu, Entwicklung `'unsafe-eval'` für React Refresh.
+- **Rechtsseiten** `/impressum`, `/datenschutz`, `/agb` sind öffentlich erreichbar (Footer) und enthalten nur Platzhalter, die klar als „vom Owner zu ersetzen“ markiert sind. Vor der öffentlichen Bewerbung durch geprüfte Texte ersetzen.
+- **Onboarding**: Ohne Objekte zeigt die Objektanalyse einen leeren Zustand mit Erklärung und „Beispielobjekt laden“ (fiktives Objekt aus `lib/sample-data.ts`). Nichts wird automatisch angelegt.
+- **Hinweise statt Pflichtfelder**: Jede Kennzahl, die wegen fehlender Eingaben nicht berechenbar ist, nennt den fehlenden Wert (`lib/calculations/missing.ts`), nach dem Muster der Kurtaxe.
+- **Rate-Limit** für `/api/geocode`: 30 Anfragen pro Nutzer und Stunde, Antwort 429 mit `Retry-After`. Zähler im Arbeitsspeicher je Serverinstanz (`lib/rate-limit.ts`); bei Serverless zählt jede Instanz getrennt und verliert den Stand beim Kaltstart. Für harte Grenzen später eine Tabelle.
 
 ## Geokodierung
 

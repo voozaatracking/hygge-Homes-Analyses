@@ -48,6 +48,22 @@ Status: offen, nächster Schritt nach Phase 2.
 ### 4. Datenbank-Skalierung
 Supabase bleibt vorerst. Damit ein späterer Umzug billig bleibt: Datenzugriff gebündelt halten, Schemaänderungen nur als SQL-Migrationen im Repo.
 
+## Go-Live-Checkliste
+Stand PR 10 (Go-Live-Vorbereitung). Erledigt bedeutet im Code umgesetzt; Owner-Schritte sind gekennzeichnet.
+
+- [x] Security-Header (CSP mit Supabase und Nominatim, X-Frame-Options, Referrer-Policy, Permissions-Policy, HSTS nur in Produktion; Preview mit Vercel-Toolbar). `lib/security-headers.ts`, `next.config.ts`.
+- [x] Supabase-Schlüssel: alte JWT-Schlüssel (anon, service_role) und neue (`sb_publishable_`, `sb_secret_`) werden akzeptiert, Variablennamen unverändert, Fehlzuordnung wird abgewiesen. `lib/supabase/keys.ts`.
+- [x] Onboarding: leerer Zustand mit Erklärung und „Beispielobjekt laden“, kein automatisches Anlegen.
+- [x] Hinweis-Konzept für fehlende Eingaben über das gesamte Objektformular (`lib/calculations/missing.ts`), nur Hinweise, keine Pflichtfelder.
+- [x] Rechtsseiten als Gerüst (`/impressum`, `/datenschutz`, `/agb`) mit Platzhaltern, aus dem Footer erreichbar.
+- [x] Rate-Limit für `/api/geocode`: 30 Anfragen pro Nutzer und Stunde, im Arbeitsspeicher je Serverinstanz (`lib/rate-limit.ts`).
+- [ ] Owner: Rechtstexte für Impressum, Datenschutzerklärung und AGB einsetzen (geprüfte Inhalte, keine Platzhalter).
+- [ ] Owner: Supabase-Auth-Schritte 1 bis 7 aus der README abschließen (Migrationen inkl. 0004, SMTP, Redirect URLs, Datenübernahme, `0003_drop_app_users`).
+- [ ] Owner: Umgebungsvariablen in Vercel prüfen (`NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `CRON_SECRET`), `SITE_PASSWORD` entfernen.
+- [ ] Owner: Probedruck des Reports mit und ohne Logo; CSP im Preview mit Vercel-Toolbar prüfen (Browser-Konsole ohne CSP-Verstöße).
+- [ ] Owner: Eigene Domain und HTTPS in Vercel, danach HSTS wirksam.
+- [ ] Offen für später: hartes Rate-Limit über Tabelle statt Arbeitsspeicher, sobald mehrere Serverinstanzen oder Payment-Nutzer; Monitoring und Fehler-Logging.
+
 ## Arbeitsregeln
 - Pro Aufgabe ein neuer Branch, nie direkt auf main.
 - Vor jedem Commit: `npm run lint`, `npm run test`, `npm run build`. Fehler beheben.

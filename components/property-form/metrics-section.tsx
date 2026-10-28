@@ -7,8 +7,9 @@ import { fmtNum } from "@/lib/format";
 
 export function MetricsSection({
   derived,
+  missing,
   active,
-}: SectionProps) {
+  }: SectionProps) {
   // Weitere Kennzahlen
   return (
     <div className={active ? undefined : "hidden"}>
@@ -23,7 +24,7 @@ export function MetricsSection({
               ? `${fmtNum(derived.areaProductivityMonthly, 2)} €/qm`
               : "–"
           }
-          sub="Umsatz pro Monat / Fläche"
+          sub={missing.areaProductivity ?? "Umsatz pro Monat / Fläche"}
         />
         <MetricsCard
           label="Flächenproduktivität (Jahr)"
@@ -32,7 +33,7 @@ export function MetricsSection({
               ? `${fmtNum(derived.areaProductivityAnnual, 2)} €/qm`
               : "–"
           }
-          sub="Monatswert × 12"
+          sub={missing.areaProductivity ?? "Monatswert × 12"}
         />
         <MetricsCard
           label="Raumproduktivität"
@@ -41,7 +42,7 @@ export function MetricsSection({
               ? `${fmtNum(derived.roomProductivity, 1)} qm/Raum`
               : "–"
           }
-          sub="Fläche / Schlafräume"
+          sub={missing.roomProductivity ?? "Fläche / Schlafräume"}
         />
         <MetricsCard
           label="Bettenproduktivität"
@@ -50,7 +51,7 @@ export function MetricsSection({
               ? `${fmtNum(derived.bedProductivity, 1)} qm/Bett`
               : "–"
           }
-          sub="Fläche / Betten"
+          sub={missing.bedProductivity ?? "Fläche / Betten"}
         />
         <MetricsCard
           label="Betten pro Raum"
@@ -59,7 +60,7 @@ export function MetricsSection({
               ? fmtNum(derived.bedsPerRoom, 2)
               : "–"
           }
-          sub="Betten / Schlafräume"
+          sub={missing.bedsPerRoom ?? "Betten / Schlafräume"}
         />
       </div>
     </div>

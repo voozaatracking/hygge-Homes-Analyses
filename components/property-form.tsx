@@ -7,6 +7,7 @@ import { deriveScenarios } from "@/lib/calculations/scenarios";
 import { ReportPreview } from "@/components/report-preview";
 import { useAnalysis } from "@/components/providers";
 import { validateProperty } from "@/lib/validation/rules";
+import { describeMissing } from "@/lib/calculations/missing";
 import { fmtEur, fmtNum, fmtPct } from "@/lib/format";
 import { TextField } from "@/components/fields";
 import { Button, Card, ConfirmDialog } from "@/components/ui";
@@ -60,6 +61,10 @@ export function PropertyForm({
     [property, deriveContext]
   );
   const errors = useMemo(() => validateProperty(property), [property]);
+  const missing = useMemo(
+    () => describeMissing(property, derived),
+    [property, derived]
+  );
 
   const set = (updater: (draft: PropertyInput) => void) => {
     const next = structuredClone(property);
@@ -75,7 +80,16 @@ export function PropertyForm({
         : "negative";
 
   // Gemeinsame Props der Sektionen; `active` setzt der Wrapper je Tab.
-  const section = { property, derived, errors, set, scenarios, profitTone, active: false };
+  const section = {
+    property,
+    derived,
+    errors,
+    missing,
+    set,
+    scenarios,
+    profitTone,
+    active: false,
+  };
 
   return (
     <Card className="space-y-8">
@@ -117,15 +131,18 @@ export function PropertyForm({
         <MetricsCard
           label="Umsatz / Monat"
           value={fmtEur(derived.monthlyRevenue)}
+          sub={missing.monthlyRevenue ?? undefined}
         />
         <MetricsCard
           label="Kosten / Monat"
           value={fmtEur(derived.totalMonthlyCosts)}
+          sub={missing.totalMonthlyCosts ?? undefined}
         />
         <MetricsCard
           label="Gewinn / Monat"
           value={fmtEur(derived.monthlyProfit)}
           tone={profitTone}
+          sub={missing.monthlyProfit ?? undefined}
         />
         <MetricsCard
           label="Break-even"

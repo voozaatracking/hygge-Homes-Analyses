@@ -12,8 +12,9 @@ export function CostAssumptionsSection({
   derived,
   errors,
   set,
+  missing,
   profitTone,
-}: SectionProps) {
+  }: SectionProps) {
   return (
     <>
         {/* Strom */}
@@ -44,6 +45,7 @@ export function CostAssumptionsSection({
                 value={property.costs.electricityManual}
                 onChange={(v) => set((d) => (d.costs.electricityManual = v))}
                 error={errors.electricityManual}
+                hint={missing.electricity}
               />
             </div>
           ) : (
@@ -95,8 +97,8 @@ export function CostAssumptionsSection({
                 />
               ) : (
                 <Notice kind="info">
-                  Für die automatische Berechnung fehlen noch: Stromverbrauch,
-                  Gesamtfläche, Strompreis oder Aufschlag.
+                  {missing.electricity ??
+                    "Für die automatische Berechnung fehlen noch Eingaben."}
                 </Notice>
               )}
             </>
@@ -129,6 +131,7 @@ export function CostAssumptionsSection({
                 value={property.costs.cleaningManual}
                 onChange={(v) => set((d) => (d.costs.cleaningManual = v))}
                 error={errors.cleaningManual}
+                hint={missing.cleaning}
               />
             </div>
           ) : (
@@ -174,8 +177,8 @@ export function CostAssumptionsSection({
                 />
               ) : (
                 <Notice kind="info">
-                  Für die automatische Berechnung fehlen noch: Fläche,
-                  Reinigungszeit, Stundenlohn oder Wechsel pro Monat.
+                  {missing.cleaning ??
+                    "Für die automatische Berechnung fehlen noch Eingaben."}
                 </Notice>
               )}
             </>
@@ -339,18 +342,18 @@ export function CostAssumptionsSection({
           <MetricsCard
             label="Gesamtkosten pro Monat"
             value={fmtEur(derived.totalMonthlyCosts)}
-            sub="Summe aller monatlichen Kosten"
+            sub={missing.totalMonthlyCosts ?? "Summe aller monatlichen Kosten"}
           />
           <MetricsCard
             label="Gewinn pro Monat"
             value={fmtEur(derived.monthlyProfit)}
-            sub="Umsatz pro Monat − Gesamtkosten pro Monat"
+            sub={missing.monthlyProfit ?? "Umsatz pro Monat − Gesamtkosten pro Monat"}
             tone={profitTone}
           />
           <MetricsCard
             label="Gewinn pro Jahr"
             value={fmtEur(derived.annualProfit)}
-            sub="Gewinn pro Monat × 12"
+            sub={missing.monthlyProfit ?? "Gewinn pro Monat × 12"}
             tone={profitTone}
           />
         </div>

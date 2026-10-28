@@ -11,8 +11,9 @@ export function PricingSection({
   derived,
   errors,
   set,
+  missing,
   active,
-}: SectionProps) {
+  }: SectionProps) {
   // Preis und Auslastung
   return (
     <div className={active ? undefined : "hidden"}>
@@ -60,6 +61,7 @@ export function PricingSection({
           <MetricsCard
             label="Effektiver Nachtpreis der Unterkunft"
             value={fmtEur(derived.effectiveNightPrice)}
+            sub={missing.effectiveNightPrice ?? undefined}
             source={
               derived.effectiveNightPrice == null
                 ? undefined
@@ -82,24 +84,24 @@ export function PricingSection({
           <MetricsCard
             label="Auslastungsquote"
             value={fmtPct(derived.occupancyRate)}
-            sub="vermietete Tage / 30"
+            sub={missing.occupancyRate ?? "vermietete Tage / 30"}
           />
           <MetricsCard
             label="Mindestpreis pro Nacht bei 100 % Auslastung"
             value={fmtEur(derived.minPriceAtFullOccupancy)}
-            sub="Umsatz pro Monat / 30"
+            sub={missing.monthlyRevenue ?? "Umsatz pro Monat / 30"}
           />
         </div>
         <div className="grid grid-cols-2 gap-3">
           <MetricsCard
             label="Umsatz pro Monat"
             value={fmtEur(derived.monthlyRevenue)}
-            sub="effektiver Nachtpreis × vermietete Tage"
+            sub={missing.monthlyRevenue ?? "effektiver Nachtpreis × vermietete Tage"}
           />
           <MetricsCard
             label="Jahresumsatz"
             value={fmtEur(derived.annualRevenue)}
-            sub="Umsatz pro Monat × 12"
+            sub={missing.monthlyRevenue ?? "Umsatz pro Monat × 12"}
           />
         </div>
       </div>
