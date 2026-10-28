@@ -58,6 +58,88 @@ describe("Kurtaxe / Tourismusabgabe", () => {
       dWithout.costLines.find((l) => l.label.startsWith("Kurtaxe"))
     ).toBeUndefined();
   });
+
+  it("behandelt den Wert 0 im Euromodus als keine Abgabe", () => {
+    const p = baseProperty();
+    p.costs.coldRent = 1000;
+    p.beds = 4;
+    p.costs.touristTaxPerPersonNight = 0;
+    const d = deriveProperty(p);
+    expect(
+      d.costLines.find((l) => l.label.startsWith("Kurtaxe"))
+    ).toBeUndefined();
+    expect(d.touristTax.note).toBeNull();
+    // Kein Abzug im Break-even: Deckungsbeitrag bleibt 85.
+    expect(d.breakEvenNights).toBeCloseTo(1000 / 85, 6);
+  });
+
+  it("berechnet im Prozentmodus Nachtpreis × Prozent × vermietete Nächte", () => {
+    const p = baseProperty();
+    p.costs.touristTaxMode = "percentOfPrice";
+    p.costs.touristTaxPct = 5;
+    // Wert des anderen Modus bleibt stehen, darf aber nicht einfließen.
+    p.costs.touristTaxPerPersonNight = 3;
+    const d = deriveProperty(p);
+    const line = d.costLines.find((l) => l.label.startsWith("Kurtaxe"));
+    expect(line).toBeDefined();
+    expect(line!.label).toBe("Kurtaxe / Tourismusabgabe (5 %)");
+    // 100 € × 5 % × 20 Nächte = 100 €, gleiche Basis wie die Provision (2000 € Umsatz).
+    expect(line!.amount).toBeCloseTo(100, 6);
+    expect(d.variableMonthlyCosts).toBeCloseTo(300 + 100, 6);
+  });
+
+  it("nutzt im Prozentmodus bei Preis pro Bett den effektiven Nachtpreis", () => {
+    const p = baseProperty();
+    p.pricing.mode = "perBed";
+    p.beds = 4;
+    p.costs.touristTaxMode = "percentOfPrice";
+    p.costs.touristTaxPct = 2.5;
+    const d = deriveProperty(p);
+    const line = d.costLines.find((l) => l.label.startsWith("Kurtaxe"));
+    expect(line!.label).toBe("Kurtaxe / Tourismusabgabe (2,5 %)");
+    // Effektiver Nachtpreis 400 € × 2,5 % × 20 Nächte = 200 €
+    expect(line!.amount).toBeCloseTo(200, 6);
+  });
+
+  it("behandelt den Wert 0 im Prozentmodus als keine Abgabe", () => {
+    const p = baseProperty();
+    p.costs.touristTaxMode = "percentOfPrice";
+    p.costs.touristTaxPct = 0;
+    const d = deriveProperty(p);
+    expect(
+      d.costLines.find((l) => l.label.startsWith("Kurtaxe"))
+    ).toBeUndefined();
+    expect(d.touristTax.perNight).toBe(0);
+  });
+
+  it("gibt einen Hinweis, wenn eine nötige Eingabe fehlt", () => {
+    const pct = baseProperty();
+    pct.pricing.rentedDaysPerMonth = null;
+    pct.costs.touristTaxMode = "percentOfPrice";
+    pct.costs.touristTaxPct = 5;
+    const dPct = deriveProperty(pct);
+    expect(dPct.touristTax.amount).toBeNull();
+    expect(dPct.touristTax.note).toBe(
+      "Kurtaxe wird nicht berücksichtigt: vermietete Nächte fehlen."
+    );
+
+    const eur = baseProperty();
+    eur.costs.touristTaxPerPersonNight = 3;
+    const dEur = deriveProperty(eur);
+    expect(dEur.touristTax.amount).toBeNull();
+    expect(dEur.touristTax.note).toBe(
+      "Kurtaxe wird nicht berücksichtigt: Betten fehlen."
+    );
+
+    const both = baseProperty();
+    both.pricing.nightPrice = null;
+    both.pricing.rentedDaysPerMonth = null;
+    both.costs.touristTaxMode = "percentOfPrice";
+    both.costs.touristTaxPct = 5;
+    expect(deriveProperty(both).touristTax.note).toBe(
+      "Kurtaxe wird nicht berücksichtigt: Nachtpreis und vermietete Nächte fehlen."
+    );
+  });
 });
 
 describe("Break-even-Auslastung", () => {
@@ -79,6 +161,17 @@ describe("Break-even-Auslastung", () => {
     const d = deriveProperty(p);
     // Deckungsbeitrag = 85 − 3 × 4 = 73
     expect(d.breakEvenNights).toBeCloseTo(1000 / 73, 6);
+  });
+
+  it("zieht im Prozentmodus Nachtpreis × Prozent pro Nacht ab", () => {
+    const p = baseProperty();
+    p.costs.coldRent = 1000;
+    p.costs.touristTaxMode = "percentOfPrice";
+    p.costs.touristTaxPct = 5;
+    const d = deriveProperty(p);
+    // Deckungsbeitrag = 85 − 100 × 5 % = 80; Fixkosten bleiben 1000.
+    expect(d.fixedMonthlyCosts).toBeCloseTo(1000, 6);
+    expect(d.breakEvenNights).toBeCloseTo(1000 / 80, 6);
   });
 
   it("liefert null bei fehlendem Deckungsbeitrag", () => {

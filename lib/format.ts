@@ -28,6 +28,15 @@ export function fmtPct(
 }
 
 /**
+ * Prozentsatz für Beschriftungen, Eingabe bereits in Prozent (0..100):
+ * ganze Zahlen ohne Nachkommastelle ("5 %"), sonst eine Nachkommastelle ("2,5 %").
+ */
+export function fmtPctLabel(value: number | null | undefined): string {
+  if (value == null || Number.isNaN(value)) return "–";
+  return fmtPct(value, Number.isInteger(value) ? 0 : 1, false);
+}
+
+/**
  * Parst deutsche und englische Zahleneingaben ("1.234,56", "1234.56", "12,5 %", "45 €").
  * Gibt null für leere Eingaben zurück und NaN für nicht interpretierbare Eingaben.
  */

@@ -5,7 +5,7 @@ Webbasiertes Rechentool zur wirtschaftlichen Analyse von Ferienunterkünften mit
 - **Objektanalyse:** konkrete Unterkünfte erfassen und vergleichen (Umsatz, Kosten, Gewinn, Produktivitäten, gewichtete Objektbewertung).
 - **Standortanalyse:** manuell recherchierte Marktdaten je Stadt oder Region festhalten und gegenüberstellen (Auslastung, Umsätze, Reinigungskosten, inkl. Datenquelle und Erhebungsdatum).
 
-Alle Daten bleiben im Browser. Gespeichert und geladen wird über versionierte JSON-Dateien, bestehende Excel-Listen lassen sich importieren.
+Der Zugang ist durch einen Login geschützt. Der Datenstand wird je Nutzer in Supabase gespeichert und zusätzlich im Browser zwischengespeichert; versionierte JSON-Dateien dienen als Export und Import, bestehende Excel-Listen lassen sich importieren.
 
 ## Technik
 
@@ -35,8 +35,18 @@ npm run build      # Produktions-Build
    git remote add origin <REPO-URL>
    git push -u origin main
    ```
-2. Auf vercel.com „Add New Project“, das Repository importieren. Next.js wird automatisch erkannt, keine weiteren Einstellungen oder Umgebungsvariablen nötig.
-3. Jeder Push auf `main` erzeugt ein neues Deployment.
+2. Auf vercel.com „Add New Project“, das Repository importieren. Next.js wird automatisch erkannt.
+3. In Supabase ein Projekt anlegen und `supabase/schema.sql` im SQL Editor ausführen (Hinweis: Das Skript enthält derzeit nur `analysis_state`; die Tabelle `app_users` der Nutzerverwaltung wird mit den Migrationen in Phase 2 der ROADMAP nachgezogen).
+4. In Vercel folgende Umgebungsvariablen setzen und neu deployen:
+
+   | Variable | Zweck |
+   | --- | --- |
+   | `SUPABASE_URL` | Project URL des Supabase-Projekts |
+   | `SUPABASE_SERVICE_ROLE_KEY` | service_role-Key; nur serverseitig, gelangt nie in den Browser |
+   | `SITE_PASSWORD` | Passwort des Master-Admin-Zugangs („admin“) und Signaturschlüssel der Session-Cookies |
+
+   Ohne `SITE_PASSWORD` leitet die Produktion auf die Login-Seite, ohne Supabase-Variablen ist die Cloud-Speicherung deaktiviert.
+5. Jeder Push auf `main` erzeugt ein neues Deployment.
 
 ## Projektstruktur
 
@@ -56,7 +66,7 @@ Rechenlogik und UI sind strikt getrennt: Alle Formeln liegen in `lib/` und sind 
 
 - Der gesamte Zustand (Objekte und Standorte) wird als eine JSON-Datei exportiert und importiert.
 - Die Datei trägt `schemaVersion` und `calcVersion` plus einen Schnappschuss der Annahmen. Ältere Versionen werden migriert (aktuell nur Version 1), neuere mit verständlicher Meldung abgelehnt.
-- Es gibt bewusst keine automatische Speicherung im Browser-Storage; der Export ist der Speicherstand. Ungespeicherte Änderungen lösen beim Verlassen der Seite eine Browser-Warnung aus.
+- Der Datenstand wird je Nutzer als eine Zeile in Supabase gespeichert (`analysis_state`, letzter Schreiber gewinnt) und im Browser-Storage zwischengespeichert. Der JSON-Export bleibt die dauerhafte Sicherung. Ungespeicherte Änderungen lösen beim Verlassen der Seite eine Browser-Warnung aus.
 
 ## Berechnungslogik (Kurzfassung)
 
@@ -68,6 +78,7 @@ Rechenbasis: **30 Tage pro Monat, 12 Monate pro Jahr.**
 - Mindestpreis pro Nacht bei Vollauslastung = monatliche Gesamtkosten / 30.
 - Stromkosten (Schätzung): Verbrauch (kWh/qm p.a.) × Fläche × Strompreis (Default 0,35 €/kWh), plus Aufschlag (Default 30 %) für Übernachtungsbetrieb, durch 12 als Monatswert. Annahmen je Objekt editierbar; ein manuell eingegebener Wert hat immer Vorrang und wird als „manuell eingegeben“ gekennzeichnet.
 - Reinigungskosten (Schätzung): Fläche × 2 min/qm ÷ 60 × 22 €/h × 4 Wechsel pro Monat, Annahmen je Objekt editierbar, manueller Wert hat Vorrang.
+- Kurtaxe / Tourismusabgabe (optional): wahlweise in € pro Person und Nacht (Kostenzeile = Betrag × Betten × vermietete Nächte) oder in Prozent vom Übernachtungspreis (Kostenzeile = Monatsumsatz × Prozent, dieselbe Preisbasis wie die Plattformprovision). Es gilt nur der gewählte Modus; der Wert 0 bedeutet „keine Abgabe“. Die Kurtaxe zählt in beiden Modi als variable Kostenart und mindert den Deckungsbeitrag pro Nacht im Break-even.
 - Energieeffizienzklasse ↔ Verbrauch: Aus einer Klasse abgeleitete Verbräuche sind Schätzwerte (Mitte des Klassenbereichs, Klasse H als offene Klasse mit Repräsentativwert 231 kWh/qm p.a.) und werden inklusive Bereich angezeigt. Liegen Verbrauch und Klasse vor und widersprechen sich, gewinnt der Verbrauch und ein Hinweis erscheint.
 - Miete pro qm = Kaltmiete / Fläche; Marktabweichung = (Miete/qm − Marktpreis) / Marktpreis. Der Marktpreis wird manuell recherchiert (Link zu ImmobilienScout24 ist hinterlegt, es gibt keinen automatischen Abruf).
 - Produktivitäten: Flächenproduktivität (Monatsumsatz/qm, zusätzlich als Jahreswert), Raumproduktivität (Monatsumsatz/Schlafraum), Bettenproduktivität (Monatsumsatz/Bett), Betten pro Raum.

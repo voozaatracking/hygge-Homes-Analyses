@@ -125,6 +125,40 @@ describe("JSON-Export und Re-Import (Testfall 18)", () => {
     expect(parsed.data!.analysisMode).toBe("object");
   });
 
+  it("exportiert und importiert die Kurtaxe im Prozentmodus", () => {
+    const p = emptyProperty("Kurtaxe-Objekt");
+    p.costs.touristTaxMode = "percentOfPrice";
+    p.costs.touristTaxPct = 2.5;
+    p.costs.touristTaxPerPersonNight = 3;
+
+    const file = buildAnalysisFile([p], [], "object");
+    const parsed = parseAnalysisFile(JSON.stringify(file));
+    expect(parsed.ok).toBe(true);
+    const costs = parsed.data!.objects[0].costs;
+    expect(costs.touristTaxMode).toBe("percentOfPrice");
+    expect(costs.touristTaxPct).toBe(2.5);
+    expect(costs.touristTaxPerPersonNight).toBe(3);
+  });
+
+  it("lädt ältere Dateien ohne Kurtaxe-Modus mit Euro-Standard", () => {
+    const p = emptyProperty("Altes Objekt");
+    p.costs.touristTaxPerPersonNight = 3;
+    const file = buildAnalysisFile([p], [], "object");
+    const raw = JSON.parse(JSON.stringify(file)) as {
+      objects: { costs: Record<string, unknown> }[];
+    };
+    delete raw.objects[0].costs.touristTaxMode;
+    delete raw.objects[0].costs.touristTaxPct;
+
+    const parsed = parseAnalysisFile(JSON.stringify(raw));
+    expect(parsed.ok).toBe(true);
+    const costs = parsed.data!.objects[0].costs;
+    expect(costs.touristTaxMode).toBe("perPersonNight");
+    expect(costs.touristTaxPct).toBeNull();
+    expect(costs.touristTaxPerPersonNight).toBe(3);
+    expect(parsed.data!.objects[0]).toEqual(p);
+  });
+
   it("lehnt ungültige Dateien mit verständlicher Fehlermeldung ab", () => {
     expect(parseAnalysisFile("kein json").ok).toBe(false);
     const invalid = parseAnalysisFile(

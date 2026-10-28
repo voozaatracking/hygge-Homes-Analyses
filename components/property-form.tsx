@@ -1,7 +1,11 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import type { EnergyClass, PropertyInput } from "@/lib/types/analysis";
+import type {
+  EnergyClass,
+  PropertyInput,
+  TouristTaxMode,
+} from "@/lib/types/analysis";
 import { ENERGY_CLASSES } from "@/lib/types/analysis";
 import { deriveProperty } from "@/lib/calculations/property-calculations";
 import { deriveScenarios } from "@/lib/calculations/scenarios";
@@ -13,6 +17,7 @@ import {
   CheckboxField,
   NumberField,
   RadioGroup,
+  SelectField,
   TextField,
 } from "@/components/fields";
 import {
@@ -447,16 +452,46 @@ export function PropertyForm({
             onChange={(v) => set((d) => (d.costs.laundry = v))}
             error={errors.laundry}
           />
-          <NumberField
+        </div>
+
+        {/* Kurtaxe: Umschalter Euro oder Prozent, darunter das Feld des aktiven Modus.
+            Beim Umschalten bleibt der Wert des anderen Modus erhalten. */}
+        <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <SelectField
             label="Kurtaxe / Tourismusabgabe (optional)"
-            unit="€/Person/Nacht"
-            value={property.costs.touristTaxPerPersonNight}
+            value={property.costs.touristTaxMode}
             onChange={(v) =>
-              set((d) => (d.costs.touristTaxPerPersonNight = v))
+              set((d) => (d.costs.touristTaxMode = v as TouristTaxMode))
             }
-            error={errors.touristTaxPerPersonNight}
-            help="Nur ausfüllen, wenn am Standort eine Abgabe erhoben wird. Kostenzeile = Betrag × Betten × vermietete Nächte pro Monat."
+            options={[
+              { value: "perPersonNight", label: "€/Person/Nacht" },
+              { value: "percentOfPrice", label: "% vom Preis" },
+            ]}
+            help="Nur ausfüllen, wenn am Standort eine Abgabe erhoben wird. Es gilt nur der gewählte Modus; der Wert 0 bedeutet keine Abgabe."
           />
+          {property.costs.touristTaxMode === "percentOfPrice" ? (
+            <NumberField
+              label="Kurtaxe in Prozent vom Übernachtungspreis"
+              unit="%"
+              value={property.costs.touristTaxPct}
+              onChange={(v) => set((d) => (d.costs.touristTaxPct = v))}
+              error={errors.touristTaxPct}
+              help="Kostenzeile = Nachtpreis × Prozent × vermietete Nächte pro Monat, auf derselben Preisbasis wie die Plattformprovision."
+              hint={derived.touristTax.note}
+            />
+          ) : (
+            <NumberField
+              label="Kurtaxe pro Person und Nacht"
+              unit="€/Person/Nacht"
+              value={property.costs.touristTaxPerPersonNight}
+              onChange={(v) =>
+                set((d) => (d.costs.touristTaxPerPersonNight = v))
+              }
+              error={errors.touristTaxPerPersonNight}
+              help="Kostenzeile = Betrag × Betten × vermietete Nächte pro Monat."
+              hint={derived.touristTax.note}
+            />
+          )}
         </div>
 
         {/* Weitere Kosten */}

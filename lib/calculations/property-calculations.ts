@@ -4,6 +4,7 @@ import { calcElectricity, type ElectricityResult } from "@/lib/calculations/elec
 import { calcCleaning, type CleaningResult } from "@/lib/calculations/cleaning";
 import { effectiveEnergy, type EffectiveEnergy } from "@/lib/calculations/energy";
 import { scoreProperty, type ScoreResult } from "@/lib/calculations/scoring";
+import { fmtPctLabel } from "@/lib/format";
 
 /** Sichere Division: null bei fehlenden Werten oder Divisor <= 0. */
 export function safeDiv(
@@ -104,6 +105,85 @@ export interface CostLine {
   source: ValueSource;
 }
 
+/** Ergebnis der Kurtaxe-Ableitung (beide Erfassungsmodi). */
+export interface TouristTaxResult {
+  /** Beschriftung der Kostenzeile, im Prozentmodus mit Prozentsatz. */
+  label: string;
+  /** Monatliche Kostenzeile; null, wenn keine Abgabe gilt oder Eingaben fehlen. */
+  amount: number | null;
+  /**
+   * Abzug vom Deckungsbeitrag pro Nacht im Break-even.
+   * 0 ohne Abgabe, null wenn eine Abgabe gilt, aber nicht berechenbar ist.
+   */
+  perNight: number | null;
+  /**
+   * Hinweis, wenn im aktiven Modus ein Wert größer 0 eingetragen ist, aber
+   * eine für die Berechnung nötige Eingabe fehlt. Sonst null.
+   */
+  note: string | null;
+}
+
+/**
+ * Kurtaxe / Tourismusabgabe je nach Erfassungsmodus. Es gilt nur der
+ * gewählte Modus; der Wert 0 (oder leer) bedeutet "keine Abgabe".
+ */
+export function deriveTouristTax(
+  input: PropertyInput,
+  effPrice: number | null
+): TouristTaxResult {
+  const baseLabel = "Kurtaxe / Tourismusabgabe";
+  const none: TouristTaxResult = {
+    label: baseLabel,
+    amount: null,
+    perNight: 0,
+    note: null,
+  };
+  const days = input.pricing.rentedDaysPerMonth;
+  const daysValid = days != null && days >= 0 ? days : null;
+
+  // Hinweistext: "Nachtpreis fehlt", "Betten fehlen", "Nachtpreis und vermietete Nächte fehlen".
+  const notApplied = (
+    label: string,
+    missing: { name: string; plural: boolean }[]
+  ): TouristTaxResult => {
+    const plural = missing.length > 1 || missing.some((m) => m.plural);
+    const names = missing.map((m) => m.name).join(" und ");
+    return {
+      label,
+      amount: null,
+      perNight: null,
+      note: `Kurtaxe wird nicht berücksichtigt: ${names} ${plural ? "fehlen" : "fehlt"}.`,
+    };
+  };
+  const NIGHTS = { name: "vermietete Nächte", plural: true };
+
+  if (input.costs.touristTaxMode === "percentOfPrice") {
+    const pct = input.costs.touristTaxPct;
+    if (pct == null || pct <= 0) return none;
+    const label = `${baseLabel} (${fmtPctLabel(pct)})`;
+    if (effPrice == null || daysValid == null) {
+      const missing = [];
+      if (effPrice == null) missing.push({ name: "Nachtpreis", plural: false });
+      if (daysValid == null) missing.push(NIGHTS);
+      return notApplied(label, missing);
+    }
+    const perNight = effPrice * (pct / 100);
+    return { label, amount: perNight * daysValid, perNight, note: null };
+  }
+
+  const rate = input.costs.touristTaxPerPersonNight;
+  if (rate == null || rate <= 0) return none;
+  const beds = input.beds != null && input.beds > 0 ? input.beds : null;
+  if (beds == null || daysValid == null) {
+    const missing = [];
+    if (beds == null) missing.push({ name: "Betten", plural: true });
+    if (daysValid == null) missing.push(NIGHTS);
+    return notApplied(baseLabel, missing);
+  }
+  const perNight = rate * beds;
+  return { label: baseLabel, amount: perNight * daysValid, perNight, note: null };
+}
+
 export interface DerivedProperty {
   energy: EffectiveEnergy;
 
@@ -120,6 +200,8 @@ export interface DerivedProperty {
   cleaningUsed: { amount: number; source: ValueSource } | null;
 
   costLines: CostLine[];
+  /** Kurtaxe-Ableitung inklusive Hinweis bei fehlenden Eingaben. */
+  touristTax: TouristTaxResult;
   totalMonthlyCosts: number | null;
   /** Gesamtkosten ohne umsatzabhängige Zeilen (Provision, Kurtaxe). */
   fixedMonthlyCosts: number | null;
@@ -224,31 +306,27 @@ export function deriveProperty(input: PropertyInput): DerivedProperty {
       : null;
   if (commissionAmount != null) {
     costLines.push({
-      label: `Plattformprovision (${commissionPct} %)`,
+      label: `Plattformprovision (${fmtPctLabel(commissionPct)})`,
       amount: commissionAmount,
       source: "derived",
     });
   }
 
-  // Kurtaxe / Tourismusabgabe: optional, nur wenn ein Betrag eingegeben wurde.
-  // Formel: € pro Person und Nacht × Betten × vermietete Nächte pro Monat.
-  const touristTaxRate = input.costs.touristTaxPerPersonNight;
-  const touristTaxAmount =
-    touristTaxRate != null &&
-    touristTaxRate >= 0 &&
-    input.beds != null &&
-    input.beds > 0 &&
-    input.pricing.rentedDaysPerMonth != null &&
-    input.pricing.rentedDaysPerMonth >= 0
-      ? touristTaxRate * input.beds * input.pricing.rentedDaysPerMonth
-      : null;
-  if (touristTaxAmount != null) {
+  // Kurtaxe / Tourismusabgabe: optional. Es gilt nur der gewählte Modus,
+  // der Wert 0 bedeutet "keine Abgabe" (keine Zeile, kein Break-even-Abzug).
+  // - € pro Person und Nacht: Betrag × Betten × vermietete Nächte pro Monat
+  // - Prozent vom Preis: Nachtpreis × Prozent / 100 × vermietete Nächte,
+  //   also dieselbe Preisbasis wie die Plattformprovision.
+  // taxPerNight ist der Abzug vom Deckungsbeitrag pro Nacht im Break-even.
+  const touristTax = deriveTouristTax(input, effPrice);
+  if (touristTax.amount != null) {
     costLines.push({
-      label: "Kurtaxe / Tourismusabgabe",
-      amount: touristTaxAmount,
+      label: touristTax.label,
+      amount: touristTax.amount,
       source: "derived",
     });
   }
+  const touristTaxAmount = touristTax.amount;
 
   const totalMonthlyCosts =
     costLines.length > 0
@@ -280,12 +358,7 @@ export function deriveProperty(input: PropertyInput): DerivedProperty {
       commissionPct != null && commissionPct >= 0
         ? effPrice * (1 - commissionPct / 100)
         : effPrice;
-    const taxPerNight =
-      touristTaxRate != null && touristTaxRate >= 0
-        ? input.beds != null && input.beds > 0
-          ? touristTaxRate * input.beds
-          : null
-        : 0;
+    const taxPerNight = touristTax.perNight;
     if (taxPerNight != null) {
       const contributionPerNight = netPricePerNight - taxPerNight;
       if (contributionPerNight > 0) {
@@ -335,6 +408,7 @@ export function deriveProperty(input: PropertyInput): DerivedProperty {
     cleaningAuto,
     cleaningUsed,
     costLines,
+    touristTax,
     totalMonthlyCosts,
     fixedMonthlyCosts,
     variableMonthlyCosts: totalMonthlyCosts != null ? variableMonthlyCosts : null,

@@ -14,7 +14,7 @@ import {
   SCHEMA_VERSION,
 } from "@/lib/config/assumptions";
 import { normalizeWeeklyPrices } from "@/lib/utils";
-import { ENERGY_CLASSES } from "@/lib/types/analysis";
+import { ENERGY_CLASSES, TOURIST_TAX_MODES } from "@/lib/types/analysis";
 
 const nullableNumber = z.number().nullable();
 
@@ -55,8 +55,14 @@ const propertySchema = z.object({
     useManualElectricity: z.boolean(),
     cleaningManual: nullableNumber,
     useManualCleaning: z.boolean(),
+    /** Ab Einführung des Kurtaxe-Modus. Ältere Dateien: Euro pro Person und Nacht. */
+    touristTaxMode: z
+      .enum(TOURIST_TAX_MODES as [string, ...string[]])
+      .default("perPersonNight"),
     /** Ab Einführung der Kurtaxe. Ältere Dateien: keine Kurtaxe. */
     touristTaxPerPersonNight: nullableNumber.default(null),
+    /** Ab Einführung des Prozentmodus der Kurtaxe. Ältere Dateien: kein Prozentwert. */
+    touristTaxPct: nullableNumber.default(null),
     extras: z.array(costItemSchema),
   }),
   electricityAssumptions: z.object({
