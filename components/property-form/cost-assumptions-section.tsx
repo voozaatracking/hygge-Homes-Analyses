@@ -195,13 +195,10 @@ export function CostAssumptionsSection({
             <span className="text-sm text-muted">noch nicht berechenbar</span>
           ) : null}
         </div>
-        <AddressGeocodeField
-          label="Adresse des Objekts"
-          value={property.address}
-          onChange={(next) => set((d) => (d.address = next))}
-          placeholder="Straße Hausnummer, PLZ Ort"
-          help="Dieselbe Adresse wie unter Grunddaten. Koordinaten werden nur serverseitig ermittelt und mit dem Adresstext gespeichert."
-        />
+        <p className="text-xs text-muted">
+          Adresse und Koordinaten des Objekts unter Grunddaten pflegen
+          {property.address.text ? ` (aktuell: ${property.address.text})` : ""}.
+        </p>
         <p className="text-sm text-ink">
           {derived.distance.source === "hq" ? (
             derived.distance.km != null ? (

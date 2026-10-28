@@ -1,6 +1,7 @@
 "use client";
 
 import type { SectionProps } from "@/components/property-form/types";
+import { AddressGeocodeField } from "@/components/property-form/address-geocode-field";
 import { NumberField, TextField } from "@/components/fields";
 import { SectionTitle } from "@/components/ui";
 
@@ -24,22 +25,15 @@ export function BasicsSection({
           type="url"
           placeholder="https://"
         />
-        <TextField
-          label="Standort / Adresse (optional)"
-          value={property.address.text}
-          onChange={(v) =>
-            set((d) => {
-              // Koordinaten gelten nur für den Text, zu dem sie ermittelt wurden.
-              if (v !== d.address.text) {
-                d.address.lat = null;
-                d.address.lng = null;
-              }
-              d.address.text = v;
-            })
-          }
-          help="Mit Koordinaten (Tab Kosten, „Koordinaten ermitteln“) wird die Entfernung zum Firmensitz berechnet."
-          placeholder="Stadt, Straße"
-        />
+        <div className="sm:col-span-2 lg:col-span-3">
+          <AddressGeocodeField
+            label="Standort / Adresse (optional)"
+            value={property.address}
+            onChange={(next) => set((d) => (d.address = next))}
+            placeholder="Straße Hausnummer, PLZ Ort"
+            help="Mit Koordinaten wird die Entfernung zum Firmensitz berechnet (Tab Kosten). Koordinaten werden nur serverseitig ermittelt und gelten für den eingegebenen Text."
+          />
+        </div>
         <NumberField
           label="Gesamtfläche"
           unit="qm"
