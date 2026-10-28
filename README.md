@@ -48,7 +48,7 @@ npm run build      # Produktions-Build
 
 Schritte für den Owner, in dieser Reihenfolge. Nach dem Umbau auf Supabase Auth funktioniert der Login erst, wenn Schritte 1 bis 5 erledigt sind.
 
-1. **Migrationen anwenden.** Im SQL Editor nacheinander `supabase/migrations/20261028000001_baseline.sql` und `supabase/migrations/20261028000002_profiles.sql` ausführen (alternativ Supabase CLI: `supabase db push`). Migration `20261028000003_drop_app_users.sql` noch **nicht** ausführen (siehe Schritt 7).
+1. **Migrationen anwenden.** Im SQL Editor nacheinander `supabase/migrations/20261028000001_baseline.sql`, `supabase/migrations/20261028000002_profiles.sql` und `supabase/migrations/20261028000004_analysis_state_version.sql` ausführen (alternativ Supabase CLI: `supabase db push`). Migration `20261028000003_drop_app_users.sql` noch **nicht** ausführen (siehe Schritt 7).
 2. **Authentication konfigurieren.** Unter Authentication > Providers den E-Mail-Provider einschalten, „Enable sign ups“ **ausschalten** (Zugang nur per Einladung), „Confirm email“ einschalten. Unter Authentication > URL Configuration die Site URL (Production-Domain) und als Redirect URLs `https://<production-domain>/auth/callback` sowie `https://*-<team>.vercel.app/auth/callback` für Preview-Deployments eintragen.
    Empfohlen: In den E-Mail-Vorlagen „Invite user“ und „Reset password“ den Link auf `{{ .SiteURL }}/auth/callback?token_hash={{ .TokenHash }}&type=invite&next=/auth/set-password` (Invite) bzw. `…&type=recovery&next=/auth/set-password` (Reset) setzen. Dann tauscht der Server den Token direkt gegen eine Sitzung. Ohne diese Anpassung funktionieren die Standardlinks ebenfalls; die Sitzung wird dann im Browser übernommen.
 3. **Eigenen SMTP eintragen** (Authentication > SMTP Settings, z. B. Resend oder Postmark) **vor der ersten Einladung**. Der eingebaute Mailversand von Supabase ist stark limitiert und nicht für produktive Einladungen gedacht.
@@ -84,7 +84,7 @@ Rechenlogik und UI sind strikt getrennt: Alle Formeln liegen in `lib/` und sind 
 
 - Der gesamte Zustand (Objekte und Standorte) wird als eine JSON-Datei exportiert und importiert.
 - Die Datei trägt `schemaVersion` und `calcVersion` plus einen Schnappschuss der Annahmen. Ältere Versionen werden migriert (aktuell nur Version 1), neuere mit verständlicher Meldung abgelehnt.
-- Der Datenstand wird je Nutzer als eine Zeile in Supabase gespeichert (`analysis_state`, Schlüssel ist die Auth-ID, letzter Schreiber gewinnt). Rolle, Plan und Status liegen in `profiles`; die Profilzeile entsteht per Trigger beim Anlegen des Auth-Nutzers und im Browser-Storage zwischengespeichert. Der JSON-Export bleibt die dauerhafte Sicherung. Ungespeicherte Änderungen lösen beim Verlassen der Seite eine Browser-Warnung aus.
+- Der Datenstand wird je Nutzer als eine Zeile in Supabase gespeichert (`analysis_state`, Schlüssel ist die Auth-ID, Optimistic Lock über die Spalte `version`: Der Server speichert nur, wenn die vom Client erwartete Version noch gilt, sonst antwortet er mit 409 und dem aktuellen Stand, und der Nutzer wählt im Footer „Serverstand laden“ oder „Trotzdem speichern“). Rolle, Plan und Status liegen in `profiles`; die Profilzeile entsteht per Trigger beim Anlegen des Auth-Nutzers und im Browser-Storage zwischengespeichert. Der JSON-Export bleibt die dauerhafte Sicherung. Ungespeicherte Änderungen lösen beim Verlassen der Seite eine Browser-Warnung aus.
 
 ## Berechnungslogik (Kurzfassung)
 

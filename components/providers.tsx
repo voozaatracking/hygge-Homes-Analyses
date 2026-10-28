@@ -2,17 +2,22 @@
 
 import {
   createContext,
+  useCallback,
   useContext,
   useEffect,
   useMemo,
   useReducer,
   useRef,
-  useState,
   type ReactNode,
 } from "react";
 import type { LocationInput, PropertyInput } from "@/lib/types/analysis";
 import { emptyLocation, emptyProperty } from "@/lib/utils";
 import { buildAnalysisFile, parseAnalysisFile } from "@/lib/io/json-file";
+import {
+  initialSyncState,
+  reduceSync,
+  type SyncState,
+} from "@/lib/sync";
 
 /**
  * Automatische Zwischenspeicherung im Browser (localStorage), damit ein
@@ -163,12 +168,11 @@ function reducer(state: AnalysisState, action: Action): AnalysisState {
   }
 }
 
-/** Status der Cloud-Speicherung (Supabase über /api/data). */
-export interface SyncInfo {
-  status: "checking" | "disabled" | "synced" | "saving" | "error";
-  lastSavedAt: string | null;
-  message: string | null;
-}
+/**
+ * Status der Cloud-Speicherung (Supabase über /api/data). Der Zustand selbst
+ * liegt als reiner Reducer in lib/sync.ts (Optimistic Lock, Konfliktfall).
+ */
+export type SyncInfo = SyncState;
 
 const CLOUD_SAVE_DELAY_MS = 1200;
 
@@ -184,23 +188,30 @@ const AnalysisContext = createContext<{
   state: AnalysisState;
   dispatch: (action: Action) => void;
   sync: SyncInfo;
+  /** Konflikt auflösen: Serverstand laden (lokal verwerfen) oder trotzdem speichern. */
+  resolveConflict: (mode: "loadServer" | "overwrite") => void;
 } | null>(null);
 
 export function AnalysisProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useReducer(reducer, initialState);
-  const [sync, setSync] = useState<SyncInfo>({
-    status: "checking",
-    lastSavedAt: null,
-    message: null,
-  });
+  const [sync, dispatchSync] = useReducer(reduceSync, initialSyncState);
   const restoredRef = useRef(false);
   /** true, sobald der erste Abgleich mit der Cloud abgeschlossen ist. */
   const cloudReadyRef = useRef(false);
   const cloudEnabledRef = useRef(false);
   /** Zuletzt mit der Cloud abgeglichener Datenstand (Schleifenschutz). */
   const lastSyncedRef = useRef<string | null>(null);
+  /** Zuletzt bekannte Serverversion der eigenen Zeile (Optimistic Lock). */
+  const versionRef = useRef<number | null>(null);
   /** Nutzerbezogener Schlüssel des Browser-Zwischenspeichers. */
   const autosaveKeyRef = useRef<string | null>(null);
+  /** Aktueller Datenstand für Aufrufe außerhalb des Render-Zyklus. */
+  const stateRef = useRef(state);
+  const syncStatusRef = useRef(sync.status);
+  useEffect(() => {
+    stateRef.current = state;
+    syncStatusRef.current = sync.status;
+  }, [state, sync.status]);
 
   // Beim ersten Laden: Sitzung klären, Zwischenspeicher wiederherstellen,
   // dann Cloud abgleichen. Der Zwischenspeicher ist pro Nutzer getrennt,
@@ -214,8 +225,8 @@ export function AnalysisProvider({ children }: { children: ReactNode }) {
       try {
         const meResponse = await fetch("/api/me", { cache: "no-store" });
         if (meResponse.ok) {
-          const me = (await meResponse.json()) as { uid?: string };
-          uid = typeof me.uid === "string" ? me.uid : null;
+          const me = (await meResponse.json()) as { userId?: string };
+          uid = typeof me.userId === "string" ? me.userId : null;
         }
       } catch {
         uid = null;
@@ -224,7 +235,7 @@ export function AnalysisProvider({ children }: { children: ReactNode }) {
       if (uid == null) {
         // Keine Sitzung (z. B. Login-Seite): weder Zwischenspeicher noch Cloud.
         cloudReadyRef.current = false;
-        setSync({ status: "disabled", lastSavedAt: null, message: null });
+        dispatchSync({ type: "disabled" });
         return;
       }
 
@@ -264,15 +275,15 @@ export function AnalysisProvider({ children }: { children: ReactNode }) {
           const body = (await response.json().catch(() => null)) as {
             error?: string;
           } | null;
-          setSync({
-            status: response.status === 401 ? "disabled" : "error",
-            lastSavedAt: null,
-            message:
-              response.status === 401
-                ? null
-                : (body?.error ??
-                  "Cloud nicht erreichbar, Daten bleiben lokal."),
-          });
+          if (response.status === 401 || response.status === 403) {
+            dispatchSync({ type: "disabled" });
+          } else {
+            dispatchSync({
+              type: "error",
+              message:
+                body?.error ?? "Cloud nicht erreichbar, Daten bleiben lokal.",
+            });
+          }
           cloudReadyRef.current = true;
           return;
         }
@@ -280,14 +291,16 @@ export function AnalysisProvider({ children }: { children: ReactNode }) {
           configured?: boolean;
           payload?: unknown;
           updatedAt?: string | null;
+          version?: number | null;
         };
         if (!body.configured) {
           cloudEnabledRef.current = false;
           cloudReadyRef.current = true;
-          setSync({ status: "disabled", lastSavedAt: null, message: null });
+          dispatchSync({ type: "disabled" });
           return;
         }
         cloudEnabledRef.current = true;
+        versionRef.current = body.version ?? null;
         if (body.payload != null) {
           const parsed = parseAnalysisFile(JSON.stringify(body.payload));
           if (parsed.ok && parsed.data) {
@@ -308,16 +321,15 @@ export function AnalysisProvider({ children }: { children: ReactNode }) {
           }
         }
         cloudReadyRef.current = true;
-        setSync({
-          status: "synced",
-          lastSavedAt: body.updatedAt ?? null,
-          message: null,
+        dispatchSync({
+          type: "loaded",
+          version: body.version ?? null,
+          updatedAt: body.updatedAt ?? null,
         });
       } catch {
         cloudReadyRef.current = true;
-        setSync({
-          status: "error",
-          lastSavedAt: null,
+        dispatchSync({
+          type: "error",
           message: "Cloud nicht erreichbar, Daten bleiben lokal.",
         });
       }
@@ -345,9 +357,66 @@ export function AnalysisProvider({ children }: { children: ReactNode }) {
     return () => window.clearTimeout(timeout);
   }, [state.objects, state.locations, state.dirty]);
 
-  // Änderungen verzögert in die Cloud schreiben (letzter Schreiber gewinnt).
+  /**
+   * Speichert den aktuellen Datenstand mit der erwarteten Version.
+   * 409 führt in den Konfliktzustand; dort wird nicht still wiederholt,
+   * der Nutzer entscheidet über resolveConflict.
+   */
+  const saveToCloud = useCallback(async () => {
+    const { objects, locations } = stateRef.current;
+    const current = serializeData(objects, locations);
+    dispatchSync({ type: "saving" });
+    try {
+      const file = buildAnalysisFile(objects, locations, "object");
+      const response = await fetch("/api/data", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ expectedVersion: versionRef.current, file }),
+      });
+      const body = (await response.json().catch(() => null)) as {
+        ok?: boolean;
+        conflict?: boolean;
+        updatedAt?: string | null;
+        version?: number | null;
+        payload?: unknown;
+        error?: string;
+      } | null;
+      if (response.ok && body?.ok && typeof body.version === "number") {
+        lastSyncedRef.current = current;
+        versionRef.current = body.version;
+        dispatchSync({
+          type: "saved",
+          version: body.version,
+          updatedAt: body.updatedAt ?? new Date().toISOString(),
+        });
+        return;
+      }
+      if (response.status === 409 && body?.conflict) {
+        dispatchSync({
+          type: "conflict",
+          version: body.version ?? null,
+          payload: body.payload ?? null,
+          updatedAt: body.updatedAt ?? null,
+        });
+        return;
+      }
+      dispatchSync({
+        type: "error",
+        message:
+          body?.error ?? "Cloud-Speichern fehlgeschlagen, Daten bleiben lokal.",
+      });
+    } catch {
+      dispatchSync({
+        type: "error",
+        message: "Cloud-Speichern fehlgeschlagen, Daten bleiben lokal.",
+      });
+    }
+  }, []);
+
+  // Änderungen verzögert in die Cloud schreiben. Im Konfliktzustand pausiert.
   useEffect(() => {
     if (!cloudEnabledRef.current || !cloudReadyRef.current) return;
+    if (syncStatusRef.current === "conflict") return;
     const current = serializeData(state.objects, state.locations);
     if (current === lastSyncedRef.current) return;
     if (
@@ -358,46 +427,37 @@ export function AnalysisProvider({ children }: { children: ReactNode }) {
       return;
     }
 
-    const timeout = window.setTimeout(async () => {
-      setSync((prev) => ({ ...prev, status: "saving", message: null }));
-      try {
-        const file = buildAnalysisFile(state.objects, state.locations, "object");
-        const response = await fetch("/api/data", {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(file),
-        });
-        const body = (await response.json().catch(() => null)) as {
-          ok?: boolean;
-          updatedAt?: string;
-          error?: string;
-        } | null;
-        if (response.ok && body?.ok) {
-          lastSyncedRef.current = current;
-          setSync({
-            status: "synced",
-            lastSavedAt: body.updatedAt ?? new Date().toISOString(),
-            message: null,
-          });
-        } else {
-          setSync({
-            status: "error",
-            lastSavedAt: null,
-            message:
-              body?.error ??
-              "Cloud-Speichern fehlgeschlagen, Daten bleiben lokal.",
-          });
-        }
-      } catch {
-        setSync({
-          status: "error",
-          lastSavedAt: null,
-          message: "Cloud-Speichern fehlgeschlagen, Daten bleiben lokal.",
-        });
-      }
+    const timeout = window.setTimeout(() => {
+      void saveToCloud();
     }, CLOUD_SAVE_DELAY_MS);
     return () => window.clearTimeout(timeout);
-  }, [state.objects, state.locations, state.dirty]);
+  }, [state.objects, state.locations, state.dirty, saveToCloud]);
+
+  const resolveConflict = useCallback(
+    (mode: "loadServer" | "overwrite") => {
+      const conflict = sync.conflict;
+      if (!conflict) return;
+      versionRef.current = conflict.version;
+      if (mode === "loadServer") {
+        // Lokale Änderungen verwerfen, Serverstand übernehmen.
+        const parsed =
+          conflict.payload != null
+            ? parseAnalysisFile(JSON.stringify(conflict.payload))
+            : null;
+        const objects = parsed?.ok && parsed.data ? parsed.data.objects : [];
+        const locations =
+          parsed?.ok && parsed.data ? parsed.data.locations : [];
+        lastSyncedRef.current = serializeData(objects, locations);
+        dispatch({ type: "loadFile", objects, locations });
+        dispatchSync({ type: "resolve", mode });
+        return;
+      }
+      // Trotzdem speichern: lokalen Stand mit der Serverversion erneut senden.
+      dispatchSync({ type: "resolve", mode });
+      void saveToCloud();
+    },
+    [sync.conflict, saveToCloud]
+  );
 
   // Schutz vor Datenverlust: Browser-Warnung bei ungespeicherten Änderungen.
   useEffect(() => {
@@ -410,7 +470,10 @@ export function AnalysisProvider({ children }: { children: ReactNode }) {
     return () => window.removeEventListener("beforeunload", handler);
   }, [state.dirty, state.objects.length, state.locations.length]);
 
-  const value = useMemo(() => ({ state, dispatch, sync }), [state, sync]);
+  const value = useMemo(
+    () => ({ state, dispatch, sync, resolveConflict }),
+    [state, sync, resolveConflict]
+  );
   return (
     <AnalysisContext.Provider value={value}>
       {children}
