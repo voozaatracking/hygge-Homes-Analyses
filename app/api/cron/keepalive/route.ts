@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { ANALYSIS_TABLE, getServiceClient } from "@/lib/supabase-server";
+import { ANALYSIS_TABLE, getServiceClient } from "@/lib/supabase/admin";
 
 /**
  * Keep-alive für Supabase Free: Projekte werden nach etwa einer Woche ohne

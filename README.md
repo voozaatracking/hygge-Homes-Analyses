@@ -5,11 +5,12 @@ Webbasiertes Rechentool zur wirtschaftlichen Analyse von Ferienunterkünften mit
 - **Objektanalyse:** konkrete Unterkünfte erfassen und vergleichen (Umsatz, Kosten, Gewinn, Produktivitäten, gewichtete Objektbewertung).
 - **Standortanalyse:** manuell recherchierte Marktdaten je Stadt oder Region festhalten und gegenüberstellen (Auslastung, Umsätze, Reinigungskosten, inkl. Datenquelle und Erhebungsdatum).
 
-Der Zugang ist durch einen Login geschützt. Der Datenstand wird je Nutzer in Supabase gespeichert und zusätzlich im Browser zwischengespeichert; versionierte JSON-Dateien dienen als Export und Import, bestehende Excel-Listen lassen sich importieren.
+Der Zugang läuft über Supabase Auth (E-Mail und Passwort, nur auf Einladung). Der Datenstand wird je Nutzer in Supabase gespeichert und zusätzlich im Browser zwischengespeichert; versionierte JSON-Dateien dienen als Export und Import, bestehende Excel-Listen lassen sich importieren.
 
 ## Technik
 
 - Next.js (App Router) mit TypeScript
+- Supabase: Auth (E-Mail und Passwort über `@supabase/ssr`) und Postgres für Profile und Datenstand
 - Tailwind CSS v4
 - Recharts (Diagramme), Zod (Schema-Validierung), SheetJS/xlsx (Excel-Import und -Export)
 - Vitest (Unit-Tests der Rechenlogik)
@@ -27,37 +28,53 @@ npm run build      # Produktions-Build
 
 ## Deployment auf Vercel
 
-1. Repository auf GitHub anlegen und pushen:
-   ```bash
-   git init
-   git add .
-   git commit -m "Initial: Hygge Analyse"
-   git remote add origin <REPO-URL>
-   git push -u origin main
-   ```
-2. Auf vercel.com „Add New Project“, das Repository importieren. Next.js wird automatisch erkannt.
-3. In Supabase ein Projekt anlegen und `supabase/schema.sql` im SQL Editor ausführen (Hinweis: Das Skript enthält derzeit nur `analysis_state`; die Tabelle `app_users` der Nutzerverwaltung wird mit den Migrationen in Phase 2 der ROADMAP nachgezogen).
-4. In Vercel folgende Umgebungsvariablen setzen und neu deployen:
+1. Repository auf GitHub anlegen und pushen, auf vercel.com „Add New Project“, das Repository importieren. Next.js wird automatisch erkannt.
+2. Supabase einrichten, siehe [Supabase Auth einrichten](#supabase-auth-einrichten).
+3. In Vercel folgende Umgebungsvariablen für **Production und Preview** setzen und neu deployen:
 
    | Variable | Zweck |
    | --- | --- |
-   | `SUPABASE_URL` | Project URL des Supabase-Projekts |
-   | `SUPABASE_SERVICE_ROLE_KEY` | service_role-Key; nur serverseitig, gelangt nie in den Browser |
-   | `SITE_PASSWORD` | Passwort des Master-Admin-Zugangs („admin“) und Signaturschlüssel der Session-Cookies |
+   | `NEXT_PUBLIC_SUPABASE_URL` | Project URL des Supabase-Projekts |
+   | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Anon-Key (per Design öffentlich; Tabellen sind durch Row Level Security ohne Policies nicht erreichbar, der Key dient nur der Anmeldung) |
+   | `SUPABASE_SERVICE_ROLE_KEY` | service_role-Key; nur serverseitig für Datenzugriff und Nutzerverwaltung, gelangt nie in den Browser |
    | `CRON_SECRET` | Schützt `/api/cron/keepalive`; Vercel sendet den Wert automatisch als Bearer-Token beim täglichen Cron-Aufruf (`vercel.json`), der das Supabase-Free-Projekt vor dem Pausieren bewahrt |
 
-   Ohne `SITE_PASSWORD` leitet die Produktion auf die Login-Seite, ohne Supabase-Variablen ist die Cloud-Speicherung deaktiviert.
-5. Jeder Push auf `main` erzeugt ein neues Deployment.
+   `SITE_PASSWORD` aus der alten Nutzerverwaltung wird nicht mehr gelesen und kann entfernt werden. Ohne die Supabase-Variablen leitet die Produktion auf die Login-Seite und meldet die fehlende Konfiguration.
+4. Jeder Push auf `main` erzeugt ein neues Deployment.
+
+**Hinweis:** Preview-Deployments und Production teilen dieselbe Supabase-Datenbank und damit dieselben Nutzer und Datenstände.
+
+## Supabase Auth einrichten
+
+Schritte für den Owner, in dieser Reihenfolge. Nach dem Umbau auf Supabase Auth funktioniert der Login erst, wenn Schritte 1 bis 5 erledigt sind.
+
+1. **Migrationen anwenden.** Im SQL Editor nacheinander `supabase/migrations/20261028000001_baseline.sql` und `supabase/migrations/20261028000002_profiles.sql` ausführen (alternativ Supabase CLI: `supabase db push`). Migration `20261028000003_drop_app_users.sql` noch **nicht** ausführen (siehe Schritt 7).
+2. **Authentication konfigurieren.** Unter Authentication > Providers den E-Mail-Provider einschalten, „Enable sign ups“ **ausschalten** (Zugang nur per Einladung), „Confirm email“ einschalten. Unter Authentication > URL Configuration die Site URL (Production-Domain) und als Redirect URLs `https://<production-domain>/auth/callback` sowie `https://*-<team>.vercel.app/auth/callback` für Preview-Deployments eintragen.
+   Empfohlen: In den E-Mail-Vorlagen „Invite user“ und „Reset password“ den Link auf `{{ .SiteURL }}/auth/callback?token_hash={{ .TokenHash }}&type=invite&next=/auth/set-password` (Invite) bzw. `…&type=recovery&next=/auth/set-password` (Reset) setzen. Dann tauscht der Server den Token direkt gegen eine Sitzung. Ohne diese Anpassung funktionieren die Standardlinks ebenfalls; die Sitzung wird dann im Browser übernommen.
+3. **Eigenen SMTP eintragen** (Authentication > SMTP Settings, z. B. Resend oder Postmark) **vor der ersten Einladung**. Der eingebaute Mailversand von Supabase ist stark limitiert und nicht für produktive Einladungen gedacht.
+4. **Umgebungsvariablen in Vercel setzen** (Tabelle oben) für Production und Preview, `SITE_PASSWORD` entfernen, neu deployen.
+5. **Sich selbst einladen.** Im Supabase-Dashboard unter Authentication > Users „Invite user“ mit der eigenen E-Mail-Adresse, Link aus der E-Mail öffnen, Passwort setzen. Danach `supabase/scripts/migrate-users.sql` öffnen, die Platzhalter `<ADMIN_AUTH_ID>` (eigene Auth-ID aus Authentication > Users) eintragen und die Schritte 1 und 2 des Skripts ausführen: Das setzt die Admin-Rolle mit Plan „internal“ und hängt die bisherige Datenzeile „shared“ auf die eigene Auth-ID um. Ab jetzt ist die Verwaltung unter `/admin` erreichbar.
+6. **Zweiten Bestandsnutzer einladen** über `/admin` (Rolle Mitglied, Plan Intern). Nach dem Setzen des Passworts die Platzhalter `<USER2_AUTH_ID>` und `<USER2_OLD_ID>` im Skript eintragen und die Schritte 3 und 4 ausführen; damit wandert die alte Datenzeile auf die neue Auth-ID.
+7. **Nach Bestätigung** (beide Nutzer sehen ihre Daten) `supabase/migrations/20261028000003_drop_app_users.sql` ausführen. Das entfernt die alte Tabelle `app_users` endgültig.
+
+Zugriffsregel (serverseitig in `lib/access.ts`): Zugang hat, wer aktiv ist und entweder Admin ist, Plan „internal“ hat oder Plan „pro“ mit leerem oder zukünftigem Gültigkeitsdatum. Alle anderen Konten sehen nur die Seite „Kein Zugang“. Rolle, Plan und Status werden bei jedem Request aus `profiles` gelesen, nie aus dem Cookie.
 
 ## Projektstruktur
 
 ```
-app/                     Seiten (Start, Objektanalyse, Standortanalyse)
+app/(app)/               geschützte Seiten (Start, Objektanalyse, Standortanalyse, Verwaltung); Layout prüft Sitzung und Zugang
+app/(public)/            Login, Passwort vergessen, Passwort setzen, Auth-Callback, Kein Zugang
+app/api/                 Route Handler (Datenstand, Nutzerverwaltung, Sitzung, Cron)
+proxy.ts                 Sitzung aus Cookies lesen und auffrischen, ohne Sitzung zur Anmeldung
 components/              UI-Komponenten (Formulare, Tabellen, Diagramme, Import)
+lib/access.ts            einzige Zugriffsschicht: Sitzung, Profil, Zugriffsregel
+lib/supabase/            Server-Client (Auth über Cookies), Browser-Client, Service-Client
 lib/calculations/        gesamte Rechenlogik (rein, ohne UI)
 lib/config/              zentrale Annahmen und Normierungstabellen
 lib/io/                  JSON-Export/Import, Excel-Import, CSV/XLSX-Export
 lib/validation/          Eingabevalidierung
+supabase/migrations/     Schemaänderungen als SQL-Migrationen (Supabase CLI)
+supabase/scripts/        einmalige Skripte (Datenübernahme)
 tests/                   Vitest-Tests
 ```
 
@@ -67,7 +84,7 @@ Rechenlogik und UI sind strikt getrennt: Alle Formeln liegen in `lib/` und sind 
 
 - Der gesamte Zustand (Objekte und Standorte) wird als eine JSON-Datei exportiert und importiert.
 - Die Datei trägt `schemaVersion` und `calcVersion` plus einen Schnappschuss der Annahmen. Ältere Versionen werden migriert (aktuell nur Version 1), neuere mit verständlicher Meldung abgelehnt.
-- Der Datenstand wird je Nutzer als eine Zeile in Supabase gespeichert (`analysis_state`, letzter Schreiber gewinnt) und im Browser-Storage zwischengespeichert. Der JSON-Export bleibt die dauerhafte Sicherung. Ungespeicherte Änderungen lösen beim Verlassen der Seite eine Browser-Warnung aus.
+- Der Datenstand wird je Nutzer als eine Zeile in Supabase gespeichert (`analysis_state`, Schlüssel ist die Auth-ID, letzter Schreiber gewinnt). Rolle, Plan und Status liegen in `profiles`; die Profilzeile entsteht per Trigger beim Anlegen des Auth-Nutzers und im Browser-Storage zwischengespeichert. Der JSON-Export bleibt die dauerhafte Sicherung. Ungespeicherte Änderungen lösen beim Verlassen der Seite eine Browser-Warnung aus.
 
 ## Berechnungslogik (Kurzfassung)
 
@@ -121,7 +138,6 @@ Die Raumproduktivität ist bewusst nicht monoton (Optimum bei 25 €/Raum und Ta
 
 ## Erweiterungsideen
 
-- Persistenz über eine kleine Datenbank oder Cloud-Speicher statt reinem JSON-Export.
 - Saisonalisierung (monatsgenaue Auslastung und Preise) statt 30-Tage-Pauschale.
 - Direkter Abgleich Objekt gegen Standort (erwarteter vs. kalkulierter Umsatz).
 - PDF-Export des Objektvergleichs.

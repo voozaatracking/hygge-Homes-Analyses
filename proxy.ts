@@ -1,34 +1,77 @@
+import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
-import { SESSION_COOKIE, verifySessionToken } from "@/lib/session";
 
 /**
  * Zugangsschutz für alle Seiten (Next 16: proxy.ts statt middleware.ts).
  *
- * Geprüft wird das signierte Session-Cookie (Benutzername/Passwort-Login).
- * Der Status "aktiv" wird zusätzlich bei jedem Datenzugriff in /api/data
- * live geprüft; deaktivierte Nutzer verlieren den Datenzugriff sofort und
- * sehen schlimmstenfalls bis zum Cookie-Ablauf noch die leere Seitenhülle.
+ * Liest die Supabase-Sitzung aus den Cookies, frischt sie bei Bedarf auf
+ * (Set-Cookie auf Request und Response) und leitet ohne Sitzung auf /login.
+ * Hier wird nur die Sitzung geprüft, keine Datenbank: Rolle, Plan und Status
+ * prüft das Server-Layout der geschützten Seiten über lib/access.ts.
  *
- * Ohne gesetztes SITE_PASSWORD bleibt die Seite in der lokalen Entwicklung
+ * Öffentlich: /login, /auth/*, /no-access. API-Routen prüfen die Sitzung
+ * selbst und antworten mit JSON-Statuscodes statt einer HTML-Weiterleitung.
+ *
+ * Ohne Supabase-Konfiguration bleibt die Seite in der lokalen Entwicklung
  * offen; in Produktion wird auf die Login-Seite geleitet.
  */
-export async function proxy(request: NextRequest) {
-  const secret = process.env.SITE_PASSWORD;
+const PUBLIC_PATHS = ["/login", "/auth", "/no-access"];
 
-  if (!secret) {
-    if (process.env.NODE_ENV !== "production") {
+function isPublic(pathname: string): boolean {
+  return PUBLIC_PATHS.some(
+    (p) => pathname === p || pathname.startsWith(`${p}/`)
+  );
+}
+
+export async function proxy(request: NextRequest) {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  const pathname = request.nextUrl.pathname;
+
+  if (!url || !key) {
+    if (process.env.NODE_ENV !== "production" || isPublic(pathname)) {
       return NextResponse.next();
     }
     return redirectToLogin(request);
   }
 
-  const token = request.cookies.get(SESSION_COOKIE)?.value;
-  const session = await verifySessionToken(token, secret);
-  if (session) {
-    return NextResponse.next();
+  let response = NextResponse.next({ request });
+
+  const supabase = createServerClient(url, key, {
+    cookies: {
+      getAll() {
+        return request.cookies.getAll();
+      },
+      setAll(cookiesToSet) {
+        for (const { name, value } of cookiesToSet) {
+          request.cookies.set(name, value);
+        }
+        response = NextResponse.next({ request });
+        for (const { name, value, options } of cookiesToSet) {
+          response.cookies.set(name, value, options);
+        }
+      },
+    },
+  });
+
+  // Direkt nach dem Erzeugen des Clients die Sitzung prüfen; dazwischen kein
+  // weiterer Code, sonst kann eine Auffrischung verloren gehen. getClaims
+  // prüft das Token lokal (JWKS) und frischt es bei Ablauf auf.
+  const { data } = await supabase.auth.getClaims();
+  const signedIn = Boolean(data?.claims);
+
+  // Auth-Antworten dürfen nicht von CDN oder Proxy zwischengespeichert werden.
+  response.headers.set("Cache-Control", "private, no-store");
+
+  if (isPublic(pathname)) {
+    if (signedIn && pathname === "/login") {
+      return NextResponse.redirect(new URL("/", request.url));
+    }
+    return response;
   }
 
-  return redirectToLogin(request);
+  if (!signedIn) return redirectToLogin(request);
+  return response;
 }
 
 function redirectToLogin(request: NextRequest) {
@@ -44,12 +87,10 @@ export const config = {
   matcher: [
     /*
      * Alles prüfen außer:
-     * - /login (sonst Weiterleitungsschleife)
-     * - /api (API-Routen prüfen die Sitzung selbst und antworten
-     *   mit JSON-Statuscodes statt einer HTML-Weiterleitung)
+     * - /api (API-Routen prüfen die Sitzung selbst)
      * - /_next/static und /_next/image (Build-Assets)
      * - Dateien mit Endung (favicon, Bilder aus public/)
      */
-    "/((?!api|login|_next/static|_next/image|.*\\..*).*)",
+    "/((?!api|_next/static|_next/image|.*\\..*).*)",
   ],
 };

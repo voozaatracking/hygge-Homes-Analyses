@@ -1,226 +1,310 @@
 import { NextResponse } from "next/server";
-import { MASTER_UID, sessionFromRequest } from "@/lib/session";
-import { hashPassword } from "@/lib/passwords";
+import { requireAdmin, type Plan, type Role } from "@/lib/access";
 import {
-  createUser,
-  deleteUserAndData,
-  findUserById,
-  isValidUsername,
-  listUsers,
-  normalizeUsername,
-  toPublicUser,
-  updateUser,
-} from "@/lib/users";
-import { MASTER_USERNAME } from "@/lib/session";
+  ANALYSIS_TABLE,
+  getServiceClient,
+  PROFILES_TABLE,
+} from "@/lib/supabase/admin";
 
 /**
- * Admin-API der Nutzerverwaltung. Nur für Sitzungen mit Rolle "admin".
+ * Admin-API der Nutzerverwaltung. Nur für Sitzungen mit Rolle "admin"
+ * (serverseitig aus profiles gelesen, lib/access.ts).
  *
- * GET    → Liste aller Nutzer (ohne Passwort-Hashes)
- * POST   → Nutzer anlegen { username, password, role }
- * PATCH  → { id, action: "activate" | "deactivate" | "resetPassword", newPassword? }
- * DELETE → { id } entfernt Nutzer und dessen Datenstand
+ * GET    → Liste aller Profile inkl. letzter Anmeldung aus auth.users
+ * POST   → Einladen { email, role, plan, planValidUntil? }
+ * PATCH  → { id, action: "setRole" | "setPlan" | "activate" | "deactivate",
+ *            role?, plan?, planValidUntil? }
+ * DELETE → { id } entfernt Auth-Nutzer (Profil per Cascade) und Datenstand
+ *
+ * Selbstschutz: Ein Admin kann sich selbst weder herabstufen noch
+ * deaktivieren noch löschen.
  */
 
-const MIN_PASSWORD_LENGTH = 8;
-
-async function requireAdmin(request: Request): Promise<NextResponse | null> {
-  const session = await sessionFromRequest(request);
-  if (!session) {
-    return NextResponse.json(
-      { ok: false, error: "Nicht angemeldet." },
-      { status: 401 }
-    );
-  }
-  if (session.role !== "admin") {
-    return NextResponse.json(
-      { ok: false, error: "Nur für Administratoren." },
-      { status: 403 }
-    );
-  }
-  return null;
+export interface AdminUserRow {
+  id: string;
+  email: string;
+  displayName: string | null;
+  role: Role;
+  plan: Plan;
+  planValidUntil: string | null;
+  active: boolean;
+  createdAt: string | null;
+  lastSignInAt: string | null;
 }
 
-export async function GET(request: Request) {
-  const denied = await requireAdmin(request);
-  if (denied) return denied;
+const ROLES: Role[] = ["admin", "member"];
+const PLANS: Plan[] = ["none", "internal", "pro"];
 
-  const users = await listUsers();
-  if (users == null) {
+function isRole(value: unknown): value is Role {
+  return typeof value === "string" && (ROLES as string[]).includes(value);
+}
+function isPlan(value: unknown): value is Plan {
+  return typeof value === "string" && (PLANS as string[]).includes(value);
+}
+
+/** Gültigkeitsdatum: null (unbegrenzt) oder ISO-Datum, sonst undefined. */
+function parseValidUntil(value: unknown): string | null | undefined {
+  if (value == null || value === "") return null;
+  if (typeof value !== "string") return undefined;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return undefined;
+  return date.toISOString();
+}
+
+function notConfigured() {
+  return NextResponse.json(
+    { ok: false, error: "Cloud-Speicherung ist nicht konfiguriert." },
+    { status: 503 }
+  );
+}
+
+async function readJson(request: Request): Promise<Record<string, unknown>> {
+  try {
+    const body = (await request.json()) as unknown;
+    return body && typeof body === "object"
+      ? (body as Record<string, unknown>)
+      : {};
+  } catch {
+    return {};
+  }
+}
+
+export async function GET() {
+  const denied = await requireAdmin();
+  if ("response" in denied) return denied.response;
+
+  const supabase = getServiceClient();
+  if (!supabase) return notConfigured();
+
+  const { data, error } = await supabase
+    .from(PROFILES_TABLE)
+    .select(
+      "id, email, display_name, role, plan, plan_valid_until, active, created_at"
+    )
+    .order("email", { ascending: true });
+  if (error) {
     return NextResponse.json(
       {
         ok: false,
         error:
-          "Nutzerliste nicht verfügbar. Supabase-Konfiguration und Tabelle app_users prüfen (supabase/schema.sql ausführen).",
+          "Nutzerliste nicht verfügbar. Supabase-Konfiguration und Tabelle profiles prüfen (Migrationen anwenden).",
       },
       { status: 502 }
     );
   }
+
+  // Letzte Anmeldung liegt nur in auth.users; über den Admin-Client lesen.
+  const lastSignIn = new Map<string, string | null>();
+  const authUsers = await supabase.auth.admin.listUsers({
+    page: 1,
+    perPage: 1000,
+  });
+  if (!authUsers.error) {
+    for (const user of authUsers.data.users) {
+      lastSignIn.set(user.id, user.last_sign_in_at ?? null);
+    }
+  }
+
+  const users: AdminUserRow[] = (data ?? []).map((row) => ({
+    id: row.id as string,
+    email: row.email as string,
+    displayName: (row.display_name as string | null) ?? null,
+    role: row.role as Role,
+    plan: row.plan as Plan,
+    planValidUntil: (row.plan_valid_until as string | null) ?? null,
+    active: Boolean(row.active),
+    createdAt: (row.created_at as string | null) ?? null,
+    lastSignInAt: lastSignIn.get(row.id as string) ?? null,
+  }));
+
   return NextResponse.json({ ok: true, users });
 }
 
 export async function POST(request: Request) {
-  const denied = await requireAdmin(request);
-  if (denied) return denied;
+  const denied = await requireAdmin();
+  if ("response" in denied) return denied.response;
 
-  let username = "";
-  let password = "";
-  let role: "admin" | "member" = "member";
-  try {
-    const body = (await request.json()) as {
-      username?: unknown;
-      password?: unknown;
-      role?: unknown;
-    };
-    if (typeof body.username === "string") username = body.username;
-    if (typeof body.password === "string") password = body.password;
-    if (body.role === "admin" || body.role === "member") role = body.role;
-  } catch {
-    // wird unten als ungültig behandelt
+  const supabase = getServiceClient();
+  if (!supabase) return notConfigured();
+
+  const body = await readJson(request);
+  const email =
+    typeof body.email === "string" ? body.email.trim().toLowerCase() : "";
+  const role: Role = isRole(body.role) ? body.role : "member";
+  const plan: Plan = isPlan(body.plan) ? body.plan : "none";
+  const planValidUntil = parseValidUntil(body.planValidUntil);
+
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    return NextResponse.json(
+      { ok: false, error: "Bitte eine gültige E-Mail-Adresse eingeben." },
+      { status: 400 }
+    );
+  }
+  if (planValidUntil === undefined) {
+    return NextResponse.json(
+      { ok: false, error: "Das Gültigkeitsdatum ist ungültig." },
+      { status: 400 }
+    );
   }
 
-  const normalized = normalizeUsername(username);
-  if (!isValidUsername(normalized)) {
+  // Einladung: Der Link führt auf /auth/callback und von dort zum Passwort setzen.
+  const origin = new URL(request.url).origin;
+  const invited = await supabase.auth.admin.inviteUserByEmail(email, {
+    redirectTo: `${origin}/auth/callback?next=/auth/set-password`,
+  });
+  if (invited.error || !invited.data.user) {
+    const message = invited.error?.message ?? "";
+    const known =
+      /already|exists|registered/i.test(message)
+        ? "Für diese E-Mail-Adresse existiert bereits ein Konto."
+        : "Die Einladung konnte nicht versendet werden. SMTP-Einstellungen in Supabase prüfen.";
+    return NextResponse.json({ ok: false, error: known }, { status: 400 });
+  }
+
+  // Die Profilzeile legt der Datenbank-Trigger an; hier Rolle und Plan setzen.
+  const { error } = await supabase
+    .from(PROFILES_TABLE)
+    .update({ role, plan, plan_valid_until: planValidUntil, active: true })
+    .eq("id", invited.data.user.id);
+  if (error) {
     return NextResponse.json(
       {
         ok: false,
         error:
-          "Ungültiger Benutzername: 3 bis 32 Zeichen, Kleinbuchstaben, Ziffern sowie . _ - (nicht am Rand).",
+          "Einladung versendet, aber Rolle und Plan konnten nicht gesetzt werden. Bitte in der Liste nachtragen.",
       },
-      { status: 400 }
-    );
-  }
-  if (normalized === MASTER_USERNAME) {
-    return NextResponse.json(
-      {
-        ok: false,
-        error: `Der Benutzername "${MASTER_USERNAME}" ist für den Master-Zugang reserviert.`,
-      },
-      { status: 400 }
-    );
-  }
-  if (password.length < MIN_PASSWORD_LENGTH) {
-    return NextResponse.json(
-      {
-        ok: false,
-        error: `Das Startpasswort braucht mindestens ${MIN_PASSWORD_LENGTH} Zeichen.`,
-      },
-      { status: 400 }
+      { status: 502 }
     );
   }
 
-  const passwordHash = await hashPassword(password);
-  const result = await createUser({ username: normalized, passwordHash, role });
-  if (!result.user) {
-    return NextResponse.json(
-      { ok: false, error: result.error ?? "Anlegen fehlgeschlagen." },
-      { status: 400 }
-    );
-  }
-  return NextResponse.json({ ok: true, user: result.user });
+  return NextResponse.json({ ok: true, id: invited.data.user.id, email });
 }
 
 export async function PATCH(request: Request) {
-  const denied = await requireAdmin(request);
-  if (denied) return denied;
+  const denied = await requireAdmin();
+  if ("response" in denied) return denied.response;
+  const self = denied.access;
 
-  let id = "";
-  let action = "";
-  let newPassword = "";
-  try {
-    const body = (await request.json()) as {
-      id?: unknown;
-      action?: unknown;
-      newPassword?: unknown;
-    };
-    if (typeof body.id === "string") id = body.id;
-    if (typeof body.action === "string") action = body.action;
-    if (typeof body.newPassword === "string") newPassword = body.newPassword;
-  } catch {
-    // wird unten als ungültig behandelt
-  }
+  const supabase = getServiceClient();
+  if (!supabase) return notConfigured();
 
-  if (id === MASTER_UID) {
-    return NextResponse.json(
-      { ok: false, error: "Der Master-Zugang wird nicht über die Liste verwaltet." },
-      { status: 400 }
-    );
-  }
-
-  const user = await findUserById(id);
-  if (!user) {
-    return NextResponse.json(
-      { ok: false, error: "Nutzer nicht gefunden." },
-      { status: 404 }
-    );
-  }
-
-  if (action === "activate" || action === "deactivate") {
-    const ok = await updateUser(id, { active: action === "activate" });
-    if (!ok) {
-      return NextResponse.json(
-        { ok: false, error: "Änderung fehlgeschlagen." },
-        { status: 502 }
-      );
-    }
-    return NextResponse.json({
-      ok: true,
-      user: toPublicUser({ ...user, active: action === "activate" }),
-    });
-  }
-
-  if (action === "resetPassword") {
-    if (newPassword.length < MIN_PASSWORD_LENGTH) {
-      return NextResponse.json(
-        {
-          ok: false,
-          error: `Das neue Passwort braucht mindestens ${MIN_PASSWORD_LENGTH} Zeichen.`,
-        },
-        { status: 400 }
-      );
-    }
-    const passwordHash = await hashPassword(newPassword);
-    const ok = await updateUser(id, { password_hash: passwordHash });
-    if (!ok) {
-      return NextResponse.json(
-        { ok: false, error: "Zurücksetzen fehlgeschlagen." },
-        { status: 502 }
-      );
-    }
-    return NextResponse.json({ ok: true, user: toPublicUser(user) });
-  }
-
-  return NextResponse.json(
-    { ok: false, error: "Unbekannte Aktion." },
-    { status: 400 }
-  );
-}
-
-export async function DELETE(request: Request) {
-  const denied = await requireAdmin(request);
-  if (denied) return denied;
-
-  let id = "";
-  try {
-    const body = (await request.json()) as { id?: unknown };
-    if (typeof body.id === "string") id = body.id;
-  } catch {
-    // wird unten als ungültig behandelt
-  }
-
-  if (!id || id === MASTER_UID) {
+  const body = await readJson(request);
+  const id = typeof body.id === "string" ? body.id : "";
+  const action = typeof body.action === "string" ? body.action : "";
+  if (!id) {
     return NextResponse.json(
       { ok: false, error: "Ungültige Nutzer-Kennung." },
       { status: 400 }
     );
   }
 
-  const ok = await deleteUserAndData(id);
-  if (!ok) {
+  let patch: Record<string, unknown>;
+  switch (action) {
+    case "setRole": {
+      if (!isRole(body.role)) {
+        return NextResponse.json(
+          { ok: false, error: "Unbekannte Rolle." },
+          { status: 400 }
+        );
+      }
+      if (id === self.userId && body.role !== "admin") {
+        return NextResponse.json(
+          { ok: false, error: "Die eigene Admin-Rolle kann nicht entfernt werden." },
+          { status: 400 }
+        );
+      }
+      patch = { role: body.role };
+      break;
+    }
+    case "setPlan": {
+      if (!isPlan(body.plan)) {
+        return NextResponse.json(
+          { ok: false, error: "Unbekannter Plan." },
+          { status: 400 }
+        );
+      }
+      const planValidUntil = parseValidUntil(body.planValidUntil);
+      if (planValidUntil === undefined) {
+        return NextResponse.json(
+          { ok: false, error: "Das Gültigkeitsdatum ist ungültig." },
+          { status: 400 }
+        );
+      }
+      patch = { plan: body.plan, plan_valid_until: planValidUntil };
+      break;
+    }
+    case "activate":
+      patch = { active: true };
+      break;
+    case "deactivate":
+      if (id === self.userId) {
+        return NextResponse.json(
+          { ok: false, error: "Der eigene Zugang kann nicht deaktiviert werden." },
+          { status: 400 }
+        );
+      }
+      patch = { active: false };
+      break;
+    default:
+      return NextResponse.json(
+        { ok: false, error: "Unbekannte Aktion." },
+        { status: 400 }
+      );
+  }
+
+  const { data, error } = await supabase
+    .from(PROFILES_TABLE)
+    .update(patch)
+    .eq("id", id)
+    .select("id")
+    .maybeSingle();
+  if (error) {
+    return NextResponse.json(
+      { ok: false, error: "Änderung fehlgeschlagen." },
+      { status: 502 }
+    );
+  }
+  if (!data) {
+    return NextResponse.json(
+      { ok: false, error: "Nutzer nicht gefunden." },
+      { status: 404 }
+    );
+  }
+  return NextResponse.json({ ok: true });
+}
+
+export async function DELETE(request: Request) {
+  const denied = await requireAdmin();
+  if ("response" in denied) return denied.response;
+  const self = denied.access;
+
+  const supabase = getServiceClient();
+  if (!supabase) return notConfigured();
+
+  const body = await readJson(request);
+  const id = typeof body.id === "string" ? body.id : "";
+  if (!id) {
+    return NextResponse.json(
+      { ok: false, error: "Ungültige Nutzer-Kennung." },
+      { status: 400 }
+    );
+  }
+  if (id === self.userId) {
+    return NextResponse.json(
+      { ok: false, error: "Der eigene Zugang kann nicht gelöscht werden." },
+      { status: 400 }
+    );
+  }
+
+  // Auth-Nutzer löschen; das Profil fällt per Cascade.
+  const { error } = await supabase.auth.admin.deleteUser(id);
+  if (error) {
     return NextResponse.json(
       { ok: false, error: "Löschen fehlgeschlagen." },
       { status: 502 }
     );
   }
+  // Zugehörigen Datenstand mit entfernen (bewusste Entscheidung, im UI angekündigt).
+  await supabase.from(ANALYSIS_TABLE).delete().eq("id", id);
   return NextResponse.json({ ok: true });
 }

@@ -1,17 +1,11 @@
 import { NextResponse } from "next/server";
-import { SESSION_COOKIE } from "@/lib/session";
+import { getServerSupabase } from "@/lib/supabase/server";
 
-/** Meldet ab, indem das Session-Cookie gelöscht wird. */
+/** Meldet ab: Supabase-Sitzung beenden, Auth-Cookies werden geleert. */
 export async function POST() {
-  const response = NextResponse.json({ ok: true });
-  response.cookies.set({
-    name: SESSION_COOKIE,
-    value: "",
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "lax",
-    path: "/",
-    maxAge: 0,
-  });
-  return response;
+  const supabase = await getServerSupabase();
+  if (supabase) {
+    await supabase.auth.signOut();
+  }
+  return NextResponse.json({ ok: true });
 }

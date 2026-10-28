@@ -1,19 +1,32 @@
 import { NextResponse } from "next/server";
-import { sessionFromRequest } from "@/lib/session";
+import { getAccess, getSessionUser, toPublicAccess } from "@/lib/access";
 
-/** Liefert die aktuelle Sitzung (Benutzername, Rolle, Kennung). */
-export async function GET(request: Request) {
-  const session = await sessionFromRequest(request);
-  if (!session) {
+/**
+ * Liefert das Access-Objekt des angemeldeten Nutzers ohne interne Felder.
+ * 401 ohne Sitzung. Ein Nutzer ohne Profil (sollte nach dem Trigger nicht
+ * vorkommen) wird wie ein Nutzer ohne Zugang behandelt.
+ */
+export async function GET() {
+  const user = await getSessionUser();
+  if (!user) {
     return NextResponse.json(
       { ok: false, error: "Nicht angemeldet." },
       { status: 401 }
     );
   }
-  return NextResponse.json({
-    ok: true,
-    uid: session.uid,
-    username: session.username,
-    role: session.role,
-  });
+  const access = await getAccess(user.id);
+  if (!access) {
+    return NextResponse.json({
+      ok: true,
+      userId: user.id,
+      email: user.email,
+      displayName: null,
+      role: "member",
+      plan: "none",
+      planValidUntil: null,
+      hasAccess: false,
+      isAdmin: false,
+    });
+  }
+  return NextResponse.json({ ok: true, ...toPublicAccess(access) });
 }
