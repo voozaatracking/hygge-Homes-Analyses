@@ -30,7 +30,7 @@ Entscheidung des Owners:
 
 Teilschritte:
 - 2a Supabase Auth, Profile, Migrationen (`supabase/migrations/`), Einladung, Passwort setzen und zurücksetzen, Nutzerverwaltung mit Rolle, Plan, Gültigkeit, Status. Status: erledigt (PR 4). Owner-Schritte in der README, Abschnitt „Supabase Auth einrichten“; Migration `0003_drop_app_users` erst nach bestätigter Datenübernahme.
-- 2b Optimistic Lock für `analysis_state` (Spalte `version`, bedingtes Update, 409 mit Konfliktauflösung im Client). Status: offen.
+- 2b Optimistic Lock für `analysis_state` (Spalte `version`, bedingtes Update in einer Anweisung, 409 mit aktuellem Stand, Konfliktauflösung im Client: „Serverstand laden“ oder „Trotzdem speichern“). Status: erledigt (PR 5, Migration 0004).
 - 2c Profilseite für Nutzer: Anzeigename, E-Mail-Änderung, Passwort ändern, Datenexport, Konto-Übersicht (Plan und Gültigkeit). Status: offen.
 - 2d Individualisierbares UI über `profiles.settings` (jsonb): z. B. Standardannahmen je Nutzer, bevorzugter Analysemodus, Spaltenauswahl der Vergleichstabelle; Lesen und Schreiben über `/api/me` bzw. eine Profil-Route, Anwendung in den Formularen. Status: offen.
 
