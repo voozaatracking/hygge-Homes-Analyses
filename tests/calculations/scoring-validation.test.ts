@@ -91,6 +91,26 @@ describe("Fehlende und negative Eingaben (Testfälle 15 und 16)", () => {
     expect(errors["coldRent"]).toBeTruthy();
     expect(errors["pricePerKwh"]).toBeTruthy();
   });
+
+  it("prüft bei der Kurtaxe nur das Feld des aktiven Modus", () => {
+    const eur = emptyProperty("Kurtaxe Euro");
+    eur.costs.touristTaxPerPersonNight = -1;
+    eur.costs.touristTaxPct = 150; // inaktiver Modus, darf nicht blockieren
+    const eurErrors = validateProperty(eur);
+    expect(eurErrors["touristTaxPerPersonNight"]).toBeTruthy();
+    expect(eurErrors["touristTaxPct"]).toBeUndefined();
+
+    const pct = emptyProperty("Kurtaxe Prozent");
+    pct.costs.touristTaxMode = "percentOfPrice";
+    pct.costs.touristTaxPct = 150;
+    pct.costs.touristTaxPerPersonNight = -1; // inaktiver Modus
+    const pctErrors = validateProperty(pct);
+    expect(pctErrors["touristTaxPct"]).toBeTruthy();
+    expect(pctErrors["touristTaxPerPersonNight"]).toBeUndefined();
+
+    pct.costs.touristTaxPct = 100;
+    expect(validateProperty(pct)["touristTaxPct"]).toBeUndefined();
+  });
 });
 
 describe("Sortierung und Vergleich mehrerer Objekte (Testfall 20)", () => {

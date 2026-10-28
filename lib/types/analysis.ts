@@ -55,6 +55,14 @@ export interface RevenueAssumptions {
   platformCommissionPct: number | null;
 }
 
+/** Erfassungsmodus der Kurtaxe: Euro pro Person und Nacht oder Prozent vom Preis. */
+export type TouristTaxMode = "perPersonNight" | "percentOfPrice";
+
+export const TOURIST_TAX_MODES: TouristTaxMode[] = [
+  "perPersonNight",
+  "percentOfPrice",
+];
+
 export interface PropertyInput {
   id: string;
   name: string;
@@ -95,11 +103,24 @@ export interface PropertyInput {
     cleaningManual: number | null;
     useManualCleaning: boolean;
     /**
+     * Erfassungsmodus der Kurtaxe / Tourismusabgabe. Es gilt immer nur das
+     * Feld des aktiven Modus; der Wert des anderen Modus bleibt erhalten.
+     * - "perPersonNight": € pro Person und Nacht (touristTaxPerPersonNight)
+     * - "percentOfPrice": Prozent vom Übernachtungspreis (touristTaxPct)
+     */
+    touristTaxMode: TouristTaxMode;
+    /**
      * Kurtaxe / Tourismusabgabe in € pro Person und Nacht. Optional:
-     * Nur wenn ausgefüllt, entsteht eine Kostenzeile
+     * Nur wenn ausgefüllt und größer 0, entsteht eine Kostenzeile
      * (Betrag × Betten × vermietete Nächte pro Monat).
      */
     touristTaxPerPersonNight: number | null;
+    /**
+     * Kurtaxe / Tourismusabgabe in Prozent vom Übernachtungspreis. Optional:
+     * Nur wenn ausgefüllt und größer 0, entsteht eine Kostenzeile
+     * (Monatsumsatz × Prozent / 100, dieselbe Preisbasis wie die Provision).
+     */
+    touristTaxPct: number | null;
     extras: CostItem[];
   };
 

@@ -79,7 +79,17 @@ export function validateProperty(input: PropertyInput): FieldErrors {
         "Die Provision muss zwischen 0 und 100 Prozent liegen.";
     }
   }
-  if (
+  // Kurtaxe: Es gilt nur das Feld des aktiven Modus; der andere Wert wird
+  // nicht geprüft, damit ein stehengelassener Wert nicht blockiert.
+  if (input.costs.touristTaxMode === "percentOfPrice") {
+    if (isSet(input.costs.touristTaxPct)) {
+      const pct = input.costs.touristTaxPct;
+      if (pct < 0 || pct > 100) {
+        errors.touristTaxPct =
+          "Die Kurtaxe muss zwischen 0 und 100 Prozent liegen.";
+      }
+    }
+  } else if (
     isSet(input.costs.touristTaxPerPersonNight) &&
     input.costs.touristTaxPerPersonNight < 0
   ) {

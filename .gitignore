@@ -1,0 +1,20 @@
+# Abhängigkeiten
+node_modules/
+
+# Next.js Build- und Dev-Ausgaben
+.next/
+out/
+
+# TypeScript
+*.tsbuildinfo
+next-env.d.ts
+
+# Lokale Umgebungsvariablen
+.env*
+!.env.example
+
+# Vercel
+.vercel/
+
+# Betriebssystem und Editor
+.DS_Store
