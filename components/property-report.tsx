@@ -3,44 +3,69 @@
 import type { PropertyInput } from "@/lib/types/analysis";
 import type { DerivedProperty } from "@/lib/calculations/property-calculations";
 import type { ScenarioResult } from "@/lib/calculations/scenarios";
+import type { CSSProperties } from "react";
 import { fmtEur, fmtNum, fmtPct } from "@/lib/format";
+import {
+  defaultProfileSettings,
+  type CompanySettings,
+  type ReportSettings,
+} from "@/lib/profile/settings";
+import type { ReportSectionId } from "@/lib/report/sections";
+import { ReportHeader } from "@/components/report/report-header";
+import { ReportFooter } from "@/components/report/report-footer";
 
 /**
- * Druckoptimierter Objektsteckbrief. Auf dem Bildschirm unsichtbar;
- * beim Drucken (Browser-Druckdialog, "Als PDF speichern") ist ausschließlich
- * dieser Steckbrief sichtbar (siehe @media print in globals.css).
+ * Gebrandeter Objektsteckbrief. Auf dem Bildschirm als Vorschau in der
+ * Report-Ansicht; beim Drucken (Browser-Druckdialog, "Als PDF speichern") ist
+ * ausschließlich dieser Steckbrief sichtbar (siehe @media print in globals.css).
+ * Jede Sektion trägt eine stabile Kennung (lib/report/sections.ts) und lässt
+ * sich im Profil dauerhaft oder am Report temporär abwählen.
  */
 export function PropertyReport({
   property,
   derived,
   scenarios,
+  company,
+  report,
+  selectedSections,
 }: {
   property: PropertyInput;
   derived: DerivedProperty;
   scenarios: ScenarioResult[] | null;
+  /** Firmendaten aus dem Profil; ohne Profil die Defaults (nichts wird gerendert). */
+  company?: CompanySettings;
+  report?: ReportSettings;
+  /** Temporäre Auswahl für diesen Ausdruck; sonst die Auswahl aus dem Profil. */
+  selectedSections?: readonly string[];
 }) {
-  const today = new Date().toLocaleDateString("de-DE", {
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-  });
+  const settings = defaultProfileSettings();
+  const companyData = company ?? settings.company;
+  const reportData = report ?? settings.report;
+  const sections = new Set(selectedSections ?? reportData.selectedSections);
+  const show = (id: ReportSectionId) => sections.has(id);
   const dash = "–";
   const val = (v: string | null | undefined) => v ?? dash;
 
-  return (
-    <div className="print-report">
-      <header className="report-header">
-        <h1>{property.name || "Unbenanntes Objekt"}</h1>
-        <p className="report-sub">
-          Objektsteckbrief · Wirtschaftlichkeitsanalyse · Stand {today}
-        </p>
-        {property.address.text ? <p>{property.address.text}</p> : null}
-        {property.listingUrl ? (
-          <p className="report-muted">{property.listingUrl}</p>
-        ) : null}
-      </header>
+  // Primär- und Sekundärfarbe nur als Akzente; ohne Farben greifen die App-Farben.
+  const style = {
+    ...(companyData.primaryColor ? { "--report-primary": companyData.primaryColor } : {}),
+    ...(companyData.secondaryColor
+      ? { "--report-secondary": companyData.secondaryColor }
+      : {}),
+  } as CSSProperties;
 
-      <section>
+  return (
+    <div className="print-report" style={style}>
+      <ReportHeader
+        company={companyData}
+        report={reportData}
+        title={property.name || "Unbenanntes Objekt"}
+        subtitle="Objektsteckbrief · Wirtschaftlichkeitsanalyse"
+        lines={[property.address.text, property.listingUrl]}
+      />
+
+      {show("basics") ? (
+      <section data-section="basics">
         <h2>Grunddaten</h2>
         <table>
           <tbody>
@@ -75,8 +100,10 @@ export function PropertyReport({
           </tbody>
         </table>
       </section>
+      ) : null}
 
-      <section>
+      {show("revenue") ? (
+      <section data-section="revenue">
         <h2>Umsatz</h2>
         <table>
           <tbody>
@@ -99,8 +126,10 @@ export function PropertyReport({
           </tbody>
         </table>
       </section>
+      ) : null}
 
-      <section>
+      {show("costs") ? (
+      <section data-section="costs">
         <h2>Monatliche Kosten</h2>
         {derived.costLines.length > 0 ? (
           <table>
@@ -123,8 +152,10 @@ export function PropertyReport({
           <p className="report-muted">Keine Kosten erfasst.</p>
         )}
       </section>
+      ) : null}
 
-      <section>
+      {show("results") ? (
+      <section data-section="results">
         <h2>Ergebnis und Wirtschaftlichkeit</h2>
         <table>
           <tbody>
@@ -161,9 +192,10 @@ export function PropertyReport({
           </tbody>
         </table>
       </section>
+      ) : null}
 
-      {scenarios ? (
-        <section>
+      {show("scenarios") && scenarios ? (
+        <section data-section="scenarios">
           <h2>Szenarien</h2>
           <table>
             <thead>
@@ -199,11 +231,7 @@ export function PropertyReport({
         </section>
       ) : null}
 
-      <footer className="report-footer">
-        Erstellt mit der Hygge Homes Objekt- und Standortanalyse. Alle Werte
-        beruhen auf den eingegebenen Daten und dokumentierten Annahmen; keine
-        Anlage- oder Rechtsberatung.
-      </footer>
+      <ReportFooter company={companyData} report={reportData} />
     </div>
   );
 }

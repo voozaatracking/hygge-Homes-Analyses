@@ -44,7 +44,7 @@ describe("Profil-Einstellungen (Schema)", () => {
       secondaryColor: null,
     });
     expect(s.hq).toEqual({ address: "", lat: null, lng: null });
-    expect(s.report).toEqual({});
+    expect(s.report.selectedSections).toHaveLength(5);
     expect(parseProfileSettings(null)).toEqual(defaultProfileSettings());
   });
 

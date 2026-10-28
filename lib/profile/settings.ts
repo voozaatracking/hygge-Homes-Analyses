@@ -6,6 +6,11 @@ import {
   REVENUE_DEFAULTS,
 } from "@/lib/config/assumptions";
 import { TOURIST_TAX_MODES } from "@/lib/types/analysis";
+import {
+  ALL_REPORT_SECTION_IDS,
+  DEFAULT_DISCLAIMER,
+  normalizeSectionIds,
+} from "@/lib/report/sections";
 
 /**
  * profiles.settings: versioniertes JSON nach dem Muster der Analyse-Datei.
@@ -114,8 +119,21 @@ export const hqSchema = z
   })
   .prefault({});
 
-/** Report-Einstellungen; wird in Phase 2d (PR 9) gefüllt. */
-export const reportSchema = z.object({}).prefault({});
+/** Report-Einstellungen: Sektionsauswahl, Kopf- und Fußbestandteile, Hinweistext. */
+export const reportSchema = z
+  .object({
+    /** Kennungen aus lib/report/sections.ts; unbekannte werden entfernt. */
+    selectedSections: z
+      .array(z.string())
+      .default([...ALL_REPORT_SECTION_IDS])
+      .transform((ids) => normalizeSectionIds(ids)),
+    showLogo: z.boolean().default(true),
+    showCompanyFooter: z.boolean().default(true),
+    showDate: z.boolean().default(true),
+    showDisclaimer: z.boolean().default(true),
+    disclaimerText: z.string().max(2000).default(DEFAULT_DISCLAIMER),
+  })
+  .prefault({});
 
 export const profileSettingsSchema = z.object({
   schemaVersion: z.number().int().default(PROFILE_SETTINGS_VERSION),
@@ -128,6 +146,7 @@ export const profileSettingsSchema = z.object({
 export type ProfileSettings = z.infer<typeof profileSettingsSchema>;
 export type ProfileDefaults = ProfileSettings["defaults"];
 export type CompanySettings = ProfileSettings["company"];
+export type ReportSettings = ProfileSettings["report"];
 
 /** Vollständige Defaults (leeres Objekt durch das Schema). */
 export function defaultProfileSettings(): ProfileSettings {
