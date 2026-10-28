@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import type { PropertyInput } from "@/lib/types/analysis";
 import { deriveProperty } from "@/lib/calculations/property-calculations";
 import { deriveScenarios } from "@/lib/calculations/scenarios";
-import { PropertyReport } from "@/components/property-report";
+import { ReportPreview } from "@/components/report-preview";
 import { useAnalysis } from "@/components/providers";
 import { validateProperty } from "@/lib/validation/rules";
 import { fmtEur, fmtNum, fmtPct } from "@/lib/format";
@@ -12,6 +12,10 @@ import { TextField } from "@/components/fields";
 import { Button, Card, ConfirmDialog } from "@/components/ui";
 import { MetricsCard } from "@/components/metrics-card";
 import type { ProfitTone } from "@/components/property-form/types";
+import { defaultProfileSettings } from "@/lib/profile/settings";
+
+/** Ohne geladenes Profil (z. B. lokal ohne Supabase) gelten die Defaults. */
+const defaultProfile = { settings: defaultProfileSettings() };
 import { BasicsSection } from "@/components/property-form/basics-section";
 import { EnergySection } from "@/components/property-form/energy-section";
 import { PricingSection } from "@/components/property-form/pricing-section";
@@ -44,9 +48,9 @@ export function PropertyForm({
   onDuplicate: () => void;
 }) {
   const [confirmRemove, setConfirmRemove] = useState(false);
-  const [printing, setPrinting] = useState(false);
+  const [reportOpen, setReportOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<TabKey>("basics");
-  const { deriveContext } = useAnalysis();
+  const { deriveContext, profile } = useAnalysis();
   const derived = useMemo(
     () => deriveProperty(property, deriveContext),
     [property, deriveContext]
@@ -56,17 +60,6 @@ export function PropertyForm({
     [property, deriveContext]
   );
   const errors = useMemo(() => validateProperty(property), [property]);
-
-  useEffect(() => {
-    if (!printing) return;
-    const done = () => setPrinting(false);
-    window.addEventListener("afterprint", done);
-    const timer = window.setTimeout(() => window.print(), 60);
-    return () => {
-      window.removeEventListener("afterprint", done);
-      window.clearTimeout(timer);
-    };
-  }, [printing]);
 
   const set = (updater: (draft: PropertyInput) => void) => {
     const next = structuredClone(property);
@@ -97,8 +90,8 @@ export function PropertyForm({
           />
         </div>
         <div className="flex gap-2 pt-6">
-          <Button variant="ghost" onClick={() => setPrinting(true)}>
-            Als PDF exportieren
+          <Button variant="ghost" onClick={() => setReportOpen(true)}>
+            Report / PDF
           </Button>
           <Button variant="ghost" onClick={onDuplicate}>
             Duplizieren
@@ -108,11 +101,14 @@ export function PropertyForm({
           </Button>
         </div>
       </div>
-      {printing ? (
-        <PropertyReport
+      {reportOpen ? (
+        <ReportPreview
           property={property}
           derived={derived}
           scenarios={scenarios}
+          company={(profile ?? defaultProfile).settings.company}
+          report={(profile ?? defaultProfile).settings.report}
+          onClose={() => setReportOpen(false)}
         />
       ) : null}
 

@@ -33,16 +33,17 @@ Teilschritte:
 - 2b Optimistic Lock für `analysis_state` (Spalte `version`, bedingtes Update in einer Anweisung, 409 mit aktuellem Stand, Konfliktauflösung im Client: „Serverstand laden“ oder „Trotzdem speichern“). Status: erledigt (PR 5, Migration 0004).
 - 2c Profil, Standardannahmen, Firmendaten, Objektadresse, Entfernung und Fahrtkosten, in drei PRs:
   - PR 6: Formular-Refactoring ohne Verhaltensänderung (`components/property-form/` Sektionen, Cloud-Sync und Autosave als Hooks). Status: erledigt.
+  Phase 2c insgesamt: erledigt (PR 6 bis 8).
   - PR 7: Profilseite `/profil` (Konto, Standardannahmen, Firmendaten mit Logo und Farben, HQ-Adresse mit Geokodierung), `profiles.settings` als versioniertes Zod-Schema (`lib/profile/settings.ts`), `/api/profile`, `/api/geocode` (Nominatim hinter austauschbarer Schnittstelle), neue Objekte mit Profil-Defaults. Status: erledigt.
   - PR 8: Objektadresse mit Koordinaten, Entfernung zum HQ (Luftlinie × `DETOUR_FACTOR` 1,3), Fahrtkosten für Reinigung (Kilometerpauschale Hin und zurück oder Fixpreis je Fahrt) als Fixkostenzeile, Entfernung in Report und Vergleichstabelle. Status: erledigt.
-- 2d Gebrandeter Report mit KPI-Auswahl (PR 9): Kopf und Fuß aus den Firmendaten, Primär- und Sekundärfarbe als Akzente, stabile Sektionskennungen, Auswahl im Profil und temporär am Report, Druckansicht A4 über `window.print()`. Status: offen.
+- 2d Gebrandeter Report mit KPI-Auswahl (PR 9): Kopf und Fuß aus den Firmendaten, Primär- und Sekundärfarbe als Akzente, stabile Sektionskennungen, Auswahl im Profil und temporär am Report, Druckansicht A4 über `window.print()`. Status: erledigt (PR 9).
 
 Entscheidungen für 2c und 2d (getroffen): Einzelnutzer ohne Teams; alle Profil- und Firmenfelder optional, fehlende Werte werden nicht gerendert; `profiles.settings` ist versioniertes JSON mit Zod-Defaults, nur Rolle, Plan, Gültigkeit und aktiv bleiben Spalten; Entfernung ohne manuelle Überschreibung; Fahrtkosten sind Fixkosten, Wert 0 bedeutet keine Zeile; Geokodierung nur serverseitig, Koordinaten werden mit der Adresse gespeichert und nur bei geändertem Adresstext neu ermittelt; Logo als Data-URL (PNG, JPEG, SVG, maximal 300 KB) ohne Storage-Bucket; PDF über Druckansicht ohne PDF-Bibliothek.
 
 ### 3. Abo und Payment
-Anbieter noch nicht entschieden (Stripe oder Mollie). Vorbereitung unabhängig vom Anbieter: Plan und Rolle am Nutzer, eigene Abo-Tabelle, zentrales Feature-Gating serverseitig, Webhook-Route.
+**Nächster Schritt.** Anbieterentscheidung Stripe oder Mollie offen. Vorbereitung unabhängig vom Anbieter: Plan und Rolle am Nutzer (vorhanden in `profiles`), eigene Abo-Tabelle, zentrales Feature-Gating serverseitig (Einstiegspunkt `lib/access.ts`), Webhook-Route, Selbstregistrierung freischalten.
 
-Status: offen.
+Status: offen, nächster Schritt nach Phase 2.
 
 ### 4. Datenbank-Skalierung
 Supabase bleibt vorerst. Damit ein späterer Umzug billig bleibt: Datenzugriff gebündelt halten, Schemaänderungen nur als SQL-Migrationen im Repo.

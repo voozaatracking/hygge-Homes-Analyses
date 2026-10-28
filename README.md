@@ -99,6 +99,13 @@ Unter `/profil` pflegt jeder Nutzer sein Konto (Anzeigename, Passwort), Standard
 - Fahrtkosten für die Reinigung (optional, Haken „Fahrtkosten für Reinigung einrechnen“): Ausgangspunkt Firmensitz oder eigene Adresse; Kilometerpauschale = Strecke × 2 (Hin und zurück) × Satz × Fahrten pro Monat, oder Fixpreis je Fahrt (Hin und zurück) × Fahrten. Fahrten pro Monat leer bedeutet Reinigungen pro Monat des Objekts. Kostenzeile „Fahrtkosten Reinigung“ zählt als Fixkosten (wie die Reinigung), nicht umsatzabhängig. Wert 0 bedeutet keine Kostenzeile. Fehlen Koordinaten, Satz oder Fahrten, erscheint am Feld ein Hinweis.
 - Die Rechenlogik bleibt frei von IO: `deriveProperty(input, context)` bekommt die Firmensitz-Koordinaten als Parameter (`DeriveContext`), der Provider stellt sie aus dem Profil bereit.
 
+## Gebrandeter Report (PDF)
+
+- „Report / PDF“ am Objekt öffnet die Report-Ansicht: Vorschau des Objektsteckbriefs, Sektionen für diesen Ausdruck abwählbar (ändert das Profil nicht), „Als PDF speichern“ ruft den Browser-Druckdialog auf (`window.print()`, keine PDF-Bibliothek). Der Dateiname kommt aus `document.title` (Objektname und Datum).
+- Kopf (`components/report/report-header.tsx`): Logo, Firmenname und Adresse aus dem Profil; Fuß (`components/report/report-footer.tsx`): Kontakt, Registerangaben, Datum, Hinweistext. Fehlende Felder werden nicht gerendert. Primär- und Sekundärfarbe wirken nur als Akzente (Überschriften, Linien, Tabellenkopf); ohne Farben greifen die App-Farben. Beide Komponenten sind für die Standortanalyse wiederverwendbar.
+- Sektionen mit stabilen Kennungen (`lib/report/sections.ts`): `basics`, `revenue`, `costs`, `results`, `scenarios`. Die Standardauswahl und die Kopf-/Fußbestandteile stehen in `profiles.settings.report` (Bereich „Report“ auf `/profil`).
+- Druck: `@page` A4 mit 15 mm Rand, Navigation und Bedienelemente ausgeblendet, Seitenumbrüche nur zwischen Sektionen (`break-inside: avoid`), Farben per `print-color-adjust: exact`.
+
 ## Geokodierung
 
 Adressen (Firmensitz, später Objekte) werden nur serverseitig über `POST /api/geocode` in Koordinaten umgesetzt (`lib/geo/geocode.ts`, Anbieter austauschbar). Koordinaten werden zusammen mit dem Adresstext gespeichert und nur neu ermittelt, wenn sich der Text ändert.
@@ -165,4 +172,4 @@ Die Raumproduktivität ist bewusst nicht monoton (Optimum bei 25 €/Raum und Ta
 
 - Saisonalisierung (monatsgenaue Auslastung und Preise) statt 30-Tage-Pauschale.
 - Direkter Abgleich Objekt gegen Standort (erwarteter vs. kalkulierter Umsatz).
-- PDF-Export des Objektvergleichs.
+- PDF-Export des Objektvergleichs und gebrandeter Report für die Standortanalyse (Kopf und Fuß liegen bereits wiederverwendbar vor).

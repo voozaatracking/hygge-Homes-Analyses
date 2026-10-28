@@ -10,6 +10,7 @@ import {
   LOGO_MAX_BYTES,
   type ProfileSettings,
 } from "@/lib/profile/settings";
+import { REPORT_SECTIONS } from "@/lib/report/sections";
 import { describeAuthError, getBrowserSupabase } from "@/lib/supabase/browser";
 
 const PLAN_LABEL: Record<string, string> = {
@@ -127,7 +128,85 @@ export function ProfilePage() {
       <DefaultsSection settings={settings} update={update} />
 
       <CompanySection settings={settings} update={update} setMessage={setMessage} />
+
+      <ReportSection settings={settings} update={update} />
     </div>
+  );
+}
+
+function ReportSection({
+  settings,
+  update,
+}: {
+  settings: ProfileSettings;
+  update: (updater: (draft: ProfileSettings) => void) => void;
+}) {
+  const r = settings.report;
+  const toggleSection = (id: string) =>
+    update((s) => {
+      const current = s.report.selectedSections as string[];
+      s.report.selectedSections = (
+        current.includes(id) ? current.filter((x) => x !== id) : [...current, id]
+      ) as typeof s.report.selectedSections;
+    });
+  const flag = (
+    label: string,
+    value: boolean,
+    set: (draft: ProfileSettings, value: boolean) => void
+  ) => (
+    <label className="flex items-center gap-2 text-sm text-ink">
+      <input
+        type="checkbox"
+        checked={value}
+        onChange={(e) => update((s) => set(s, e.target.checked))}
+        className="accent-[var(--taupe)]"
+      />
+      {label}
+    </label>
+  );
+
+  return (
+    <Card>
+      <SectionTitle hint="Standardauswahl der Sektionen und Bestandteile des gebrandeten Objektsteckbriefs. Am Report selbst lassen sich Sektionen zusätzlich für einen einzelnen Ausdruck abwählen.">
+        Report
+      </SectionTitle>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="space-y-2">
+          <span className="text-sm text-ink">Sektionen</span>
+          {REPORT_SECTIONS.map((section) => (
+            <label key={section.id} className="flex items-center gap-2 text-sm text-ink">
+              <input
+                type="checkbox"
+                checked={(r.selectedSections as string[]).includes(section.id)}
+                onChange={() => toggleSection(section.id)}
+                className="accent-[var(--taupe)]"
+              />
+              {section.label}
+            </label>
+          ))}
+        </div>
+        <div className="space-y-2">
+          <span className="text-sm text-ink">Kopf und Fuß</span>
+          {flag("Logo anzeigen", r.showLogo, (s, v) => (s.report.showLogo = v))}
+          {flag("Kontakt und Registerangaben im Fuß", r.showCompanyFooter, (s, v) => (s.report.showCompanyFooter = v))}
+          {flag("Datum anzeigen", r.showDate, (s, v) => (s.report.showDate = v))}
+          {flag("Hinweistext anzeigen", r.showDisclaimer, (s, v) => (s.report.showDisclaimer = v))}
+          <div className="flex flex-col gap-1 pt-2">
+            <label htmlFor="disclaimer" className="text-sm text-ink">
+              Hinweistext
+            </label>
+            <textarea
+              id="disclaimer"
+              rows={3}
+              value={r.disclaimerText}
+              onChange={(e) => update((s) => (s.report.disclaimerText = e.target.value))}
+              disabled={!r.showDisclaimer}
+              className="w-full bg-card border border-line rounded-lg px-3 py-2 text-sm text-ink focus:border-taupe disabled:opacity-60"
+            />
+          </div>
+        </div>
+      </div>
+    </Card>
   );
 }
 
