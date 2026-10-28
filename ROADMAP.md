@@ -15,7 +15,7 @@ Aufräumpunkte:
 
 Aufgaben:
 - Aufgabe 1: Kurtaxe wahlweise in Prozent vom Übernachtungspreis oder in Euro pro Person und Nacht. Status: erledigt.
-- Aufgabe 2: Keep-alive für Supabase Free (täglicher Vercel-Cron auf `/api/cron/keepalive`, geschützt über `CRON_SECRET`). Status: offen.
+- Aufgabe 2: Keep-alive für Supabase Free (täglicher Vercel-Cron auf `/api/cron/keepalive`, geschützt über `CRON_SECRET`). Status: erledigt.
 
 ### 2. Nutzerprofile
 Ein Profil pro Nutzer mit mehr Einstellungen und individualisierbarem UI.
