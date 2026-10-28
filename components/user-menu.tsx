@@ -5,13 +5,14 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 interface Me {
-  username: string;
-  role: "admin" | "member";
+  email: string | null;
+  displayName: string | null;
+  isAdmin: boolean;
 }
 
 /**
- * Zeigt den angemeldeten Nutzer, den Verwaltungslink (nur Admins) und
- * die Abmeldung. Auf der Login-Seite oder ohne Sitzung erscheint nichts.
+ * Zeigt den angemeldeten Nutzer (Anzeigename oder E-Mail), den
+ * Verwaltungslink (nur Admins) und die Abmeldung. Ohne Sitzung erscheint nichts.
  */
 export function UserMenu() {
   const pathname = usePathname();
@@ -40,6 +41,8 @@ export function UserMenu() {
 
   if (!me) return null;
 
+  const label = me.displayName?.trim() || me.email || "Angemeldet";
+
   const logout = async () => {
     try {
       await fetch("/api/logout", { method: "POST" });
@@ -51,10 +54,13 @@ export function UserMenu() {
 
   return (
     <div className="flex items-center gap-1 text-sm">
-      <span className="text-muted px-2" title={`Angemeldet als ${me.username}`}>
-        {me.username}
+      <span
+        className="text-muted px-2 max-w-[14rem] truncate"
+        title={`Angemeldet als ${me.email ?? label}`}
+      >
+        {label}
       </span>
-      {me.role === "admin" ? (
+      {me.isAdmin ? (
         <Link
           href="/admin"
           aria-current={pathname.startsWith("/admin") ? "page" : undefined}

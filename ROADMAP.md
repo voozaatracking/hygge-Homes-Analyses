@@ -21,12 +21,18 @@ Aufgaben:
 Ein Profil pro Nutzer mit mehr Einstellungen und individualisierbarem UI.
 
 Entscheidung des Owners:
-- Auth-Strategie: Supabase Auth, E-Mail und Passwort. Der eigene Login (`lib/session.ts`, `lib/passwords.ts`, Master-Notzugang über `SITE_PASSWORD`) wird in Phase 2 vollständig abgelöst.
+- Auth-Strategie: Supabase Auth, E-Mail und Passwort. Der eigene Login (`lib/session.ts`, `lib/passwords.ts`, Master-Notzugang über `SITE_PASSWORD`) wird vollständig abgelöst.
 - Zugang zunächst nur per Einladung durch den Admin, Selbstregistrierung wird erst mit Phase 3 (Payment) freigeschaltet.
-- Tabelle `profiles` mit `role` (admin, member) und `plan` (frei, pro) plus Gültigkeitsdatum. Serverseitige Prüfung bei jedem Datenzugriff. Bis Payment existiert, setzt der Admin den Plan manuell; später schreibt der Payment-Webhook dasselbe Feld.
-- Bestehende Nutzer: Neustart der Nutzerverwaltung, nur ein Bestandsnutzer wird übernommen (Datenzeile in `analysis_state` auf die neue Auth-ID umhängen).
+- Keine Teams. Daten hängen am Nutzer.
+- Tabelle `profiles` mit `role` (admin, member), `plan` (none, internal, pro) und `plan_valid_until`. Kein Free-Tier: „pro“ ist der bezahlte Plan, „internal“ für Konten ohne Payment. Zugriffsregel: aktiv und (Admin oder internal oder pro mit leerem oder zukünftigem Datum). Serverseitige Prüfung bei jedem Datenzugriff in `lib/access.ts`; bis Payment existiert, setzt der Admin den Plan manuell, später schreibt der Payment-Webhook dieselben Felder.
+- Datenzugriff bleibt serverseitig über Route Handler und Service-Role-Key; der Browser spricht nicht direkt mit Tabellen. RLS auf allen Tabellen ohne Policies.
+- Bestehende Nutzer: Neustart der Nutzerverwaltung, zwei Bestandsnutzer werden per `supabase/scripts/migrate-users.sql` übernommen.
 
-Status: entschieden, Umsetzung folgt nach Aufgabe 1.
+Teilschritte:
+- 2a Supabase Auth, Profile, Migrationen (`supabase/migrations/`), Einladung, Passwort setzen und zurücksetzen, Nutzerverwaltung mit Rolle, Plan, Gültigkeit, Status. Status: erledigt (PR 4). Owner-Schritte in der README, Abschnitt „Supabase Auth einrichten“; Migration `0003_drop_app_users` erst nach bestätigter Datenübernahme.
+- 2b Optimistic Lock für `analysis_state` (Spalte `version`, bedingtes Update, 409 mit Konfliktauflösung im Client). Status: offen.
+- 2c Profilseite für Nutzer: Anzeigename, E-Mail-Änderung, Passwort ändern, Datenexport, Konto-Übersicht (Plan und Gültigkeit). Status: offen.
+- 2d Individualisierbares UI über `profiles.settings` (jsonb): z. B. Standardannahmen je Nutzer, bevorzugter Analysemodus, Spaltenauswahl der Vergleichstabelle; Lesen und Schreiben über `/api/me` bzw. eine Profil-Route, Anwendung in den Formularen. Status: offen.
 
 ### 3. Abo und Payment
 Anbieter noch nicht entschieden (Stripe oder Mollie). Vorbereitung unabhängig vom Anbieter: Plan und Rolle am Nutzer, eigene Abo-Tabelle, zentrales Feature-Gating serverseitig, Webhook-Route.

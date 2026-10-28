@@ -1,58 +1,20 @@
 import { NextResponse } from "next/server";
-import { MASTER_UID, sessionFromRequest } from "@/lib/session";
-import {
-  ANALYSIS_TABLE,
-  getServiceClient,
-  SHARED_ROW_ID,
-} from "@/lib/supabase-server";
+import { requireAccess } from "@/lib/access";
+import { ANALYSIS_TABLE, getServiceClient } from "@/lib/supabase/admin";
 import { parseAnalysisFile } from "@/lib/io/json-file";
-import { findUserById } from "@/lib/users";
 
 /**
  * Datenstand pro Nutzer in Supabase (eine Zeile je Nutzer mit dem kompletten,
  * versionierten Analyse-JSON, Prinzip "letzter Schreiber gewinnt").
  *
- * Zeilenschlüssel: die Nutzer-Kennung; der Master-Admin arbeitet auf der
- * bisherigen Zeile "shared", der bestehende Datenstand bleibt damit beim
- * Admin-Zugang. Neue Nutzer starten leer; Übergabe von Daten läuft bewusst
- * über JSON-Export und -Import.
+ * Zeilenschlüssel ist die Auth-ID. Zugriff: 401 ohne Sitzung, 403 ohne
+ * aktiven Plan (lib/access.ts). Neue Nutzer starten leer; Übergabe von Daten
+ * läuft bewusst über JSON-Export und -Import.
  */
 
-async function resolveAccess(request: Request): Promise<
-  | { response: NextResponse }
-  | { rowId: string }
-> {
-  const session = await sessionFromRequest(request);
-  if (!session) {
-    return {
-      response: NextResponse.json(
-        { ok: false, error: "Nicht angemeldet." },
-        { status: 401 }
-      ),
-    };
-  }
-  if (session.uid === MASTER_UID) {
-    return { rowId: SHARED_ROW_ID };
-  }
-  // Status live prüfen: Deaktivierte Nutzer verlieren den Datenzugriff sofort.
-  const user = await findUserById(session.uid);
-  if (!user || !user.active) {
-    return {
-      response: NextResponse.json(
-        {
-          ok: false,
-          error: "Der Zugang ist deaktiviert oder wurde entfernt.",
-        },
-        { status: 403 }
-      ),
-    };
-  }
-  return { rowId: session.uid };
-}
-
-export async function GET(request: Request) {
-  const access = await resolveAccess(request);
-  if ("response" in access) return access.response;
+export async function GET() {
+  const result = await requireAccess();
+  if ("response" in result) return result.response;
 
   const supabase = getServiceClient();
   if (!supabase) {
@@ -67,7 +29,7 @@ export async function GET(request: Request) {
   const { data, error } = await supabase
     .from(ANALYSIS_TABLE)
     .select("payload, updated_at")
-    .eq("id", access.rowId)
+    .eq("id", result.access.userId)
     .maybeSingle();
 
   if (error) {
@@ -91,8 +53,8 @@ export async function GET(request: Request) {
 }
 
 export async function PUT(request: Request) {
-  const access = await resolveAccess(request);
-  if ("response" in access) return access.response;
+  const result = await requireAccess();
+  if ("response" in result) return result.response;
 
   const supabase = getServiceClient();
   if (!supabase) {
@@ -126,7 +88,7 @@ export async function PUT(request: Request) {
 
   const updatedAt = new Date().toISOString();
   const { error } = await supabase.from(ANALYSIS_TABLE).upsert({
-    id: access.rowId,
+    id: result.access.userId,
     payload: parsed.data,
     updated_at: updatedAt,
   });
