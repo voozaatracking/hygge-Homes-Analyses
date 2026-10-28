@@ -11,8 +11,8 @@ interface Me {
 }
 
 /**
- * Zeigt den angemeldeten Nutzer (Anzeigename oder E-Mail), den
- * Verwaltungslink (nur Admins) und die Abmeldung. Ohne Sitzung erscheint nichts.
+ * Zeigt den angemeldeten Nutzer (Anzeigename oder E-Mail), den Profil-Link,
+ * den Verwaltungslink (nur Admins) und die Abmeldung. Ohne Sitzung erscheint nichts.
  */
 export function UserMenu() {
   const pathname = usePathname();
@@ -60,6 +60,17 @@ export function UserMenu() {
       >
         {label}
       </span>
+      <Link
+        href="/profil"
+        aria-current={pathname.startsWith("/profil") ? "page" : undefined}
+        className={`px-3 py-1.5 rounded-full transition-colors ${
+          pathname.startsWith("/profil")
+            ? "bg-greige text-ink"
+            : "text-muted hover:text-ink hover:bg-card-soft"
+        }`}
+      >
+        Profil
+      </Link>
       {me.isAdmin ? (
         <Link
           href="/admin"

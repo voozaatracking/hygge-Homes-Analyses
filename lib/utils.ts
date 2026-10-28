@@ -10,6 +10,7 @@ import {
   REVENUE_DEFAULTS,
   WEEKS_PER_YEAR,
 } from "@/lib/config/assumptions";
+import type { ProfileDefaults } from "@/lib/profile/settings";
 
 export function newId(): string {
   if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
@@ -18,7 +19,27 @@ export function newId(): string {
   return `id-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
 }
 
-export function emptyProperty(name: string): PropertyInput {
+/**
+ * Leeres Objekt. Ohne Profil-Defaults gelten die zentralen Annahmen aus
+ * lib/config/assumptions.ts; mit Profil-Defaults werden Strom-, Reinigungs-,
+ * Provisions- und Kurtaxe-Annahmen des Nutzers vorbelegt. Bestehende Objekte
+ * und importierte Dateien sind davon nicht betroffen.
+ */
+export function emptyProperty(
+  name: string,
+  defaults?: ProfileDefaults
+): PropertyInput {
+  const electricity = {
+    ...ELECTRICITY_DEFAULTS,
+    ...(defaults
+      ? {
+          pricePerKwh: defaults.electricity.pricePerKwh,
+          surchargePct: defaults.electricity.surchargePct,
+        }
+      : {}),
+  };
+  const cleaning = defaults ? { ...defaults.cleaning } : { ...CLEANING_DEFAULTS };
+  const revenue = defaults ? { ...defaults.revenue } : { ...REVENUE_DEFAULTS };
   return {
     id: newId(),
     name,
@@ -41,21 +62,26 @@ export function emptyProperty(name: string): PropertyInput {
       useManualElectricity: false,
       cleaningManual: null,
       useManualCleaning: false,
-      touristTaxMode: "perPersonNight",
-      touristTaxPerPersonNight: null,
-      touristTaxPct: null,
+      touristTaxMode: defaults
+        ? (defaults.touristTax.mode as PropertyInput["costs"]["touristTaxMode"])
+        : "perPersonNight",
+      touristTaxPerPersonNight: defaults?.touristTax.perPersonNight ?? null,
+      touristTaxPct: defaults?.touristTax.pct ?? null,
       extras: [],
     },
-    electricityAssumptions: { ...ELECTRICITY_DEFAULTS },
-    cleaningAssumptions: { ...CLEANING_DEFAULTS },
-    revenueAssumptions: { ...REVENUE_DEFAULTS },
+    electricityAssumptions: electricity,
+    cleaningAssumptions: cleaning,
+    revenueAssumptions: revenue,
     startInvestment: null,
     marketRentPerSqm: null,
     highlighted: false,
   };
 }
 
-export function emptyLocation(name: string): LocationInput {
+export function emptyLocation(
+  name: string,
+  defaults?: ProfileDefaults
+): LocationInput {
   return {
     id: newId(),
     name,
@@ -71,7 +97,8 @@ export function emptyLocation(name: string): LocationInput {
     notes: "",
     highlighted: false,
     listings: [],
-    changesPerWeek: LISTING_DEFAULTS.changesPerWeek,
+    changesPerWeek:
+      defaults?.listing.changesPerWeek ?? LISTING_DEFAULTS.changesPerWeek,
   };
 }
 

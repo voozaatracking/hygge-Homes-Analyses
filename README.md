@@ -62,13 +62,16 @@ Zugriffsregel (serverseitig in `lib/access.ts`): Zugang hat, wer aktiv ist und e
 ## Projektstruktur
 
 ```
-app/(app)/               geschützte Seiten (Start, Objektanalyse, Standortanalyse, Verwaltung); Layout prüft Sitzung und Zugang
+app/(app)/               geschützte Seiten (Start, Objektanalyse, Standortanalyse, Profil, Verwaltung); Layout prüft Sitzung und Zugang
 app/(public)/            Login, Passwort vergessen, Passwort setzen, Auth-Callback, Kein Zugang
 app/api/                 Route Handler (Datenstand, Nutzerverwaltung, Sitzung, Cron)
 proxy.ts                 Sitzung aus Cookies lesen und auffrischen, ohne Sitzung zur Anmeldung
 components/              UI-Komponenten (Formulare, Tabellen, Diagramme, Import)
 lib/access.ts            einzige Zugriffsschicht: Sitzung, Profil, Zugriffsregel
-lib/supabase/            Server-Client (Auth über Cookies), Browser-Client, Service-Client
+lib/supabase/            Server-Client (Auth über Cookies), Browser-Client (nur Auth), Service-Client
+lib/profile/             Schema der Profil-Einstellungen (profiles.settings)
+lib/geo/                 Geokodierung (austauschbarer Anbieter, Nominatim)
+hooks/                   Cloud-Sync, Autosave, Profil
 lib/calculations/        gesamte Rechenlogik (rein, ohne UI)
 lib/config/              zentrale Annahmen und Normierungstabellen
 lib/io/                  JSON-Export/Import, Excel-Import, CSV/XLSX-Export
@@ -79,6 +82,21 @@ tests/                   Vitest-Tests
 ```
 
 Rechenlogik und UI sind strikt getrennt: Alle Formeln liegen in `lib/` und sind ohne Browser testbar.
+
+## Profil, Standardannahmen und Firmendaten
+
+Unter `/profil` pflegt jeder Nutzer sein Konto (Anzeigename, Passwort), Standardannahmen für neue Objekte (Strompreis und Aufschlag, Reinigung, Plattformprovision, Kurtaxe, Gästewechsel der Standortanalyse) und Firmendaten (Name, Adresse, Kontakt, Registerangaben, Logo, Primär- und Sekundärfarbe) sowie den Firmensitz als Ausgangspunkt für Entfernungen. Alle Felder sind optional.
+
+- Die Einstellungen liegen als versioniertes JSON in `profiles.settings` (`lib/profile/settings.ts`, Zod mit `schemaVersion` und Defaults für jedes Feld). Spätere Erweiterungen brauchen keine Datenbank-Migration; nur Rolle, Plan, Gültigkeit und aktiv sind echte Spalten.
+- API: `GET /api/profile` liefert Anzeigename, E-Mail, Plan, Gültigkeit und die mit Defaults aufgefüllten Einstellungen; `PUT /api/profile` speichert Anzeigename und Einstellungen (Zod-validiert, 400 bei Fehlern). Die Passwortänderung läuft über Supabase Auth; `lib/supabase/browser.ts` wird ausschließlich für Auth-Vorgänge genutzt, nie für Tabellen.
+- Standardannahmen gelten für neue Objekte und Standorte (`emptyProperty`, `emptyLocation` mit Profil-Defaults). Bestehende Objekte, Duplikate und importierte Dateien bleiben unverändert.
+- Logo: PNG, JPEG oder SVG als Data-URL, maximal 300 KB nach clientseitiger Verkleinerung. Kein Storage-Bucket in dieser Phase.
+
+## Geokodierung
+
+Adressen (Firmensitz, später Objekte) werden nur serverseitig über `POST /api/geocode` in Koordinaten umgesetzt (`lib/geo/geocode.ts`, Anbieter austauschbar). Koordinaten werden zusammen mit dem Adresstext gespeichert und nur neu ermittelt, wenn sich der Text ändert.
+
+Erster Anbieter ist **Nominatim (OpenStreetMap)**. Nutzungshinweis: Die Nominatim-Nutzungsbedingungen verlangen einen aussagekräftigen User-Agent mit Kontaktmöglichkeit und erlauben höchstens eine Anfrage pro Sekunde; beides ist in `lib/geo/geocode.ts` umgesetzt (User-Agent `hygge-homes-analyse/1.0 (<Origin>)`, Anfragen je Serverinstanz serialisiert). Der Dienst ist für geringe Volumina gedacht, nicht für Massenabfragen; Anfragen gibt es nur auf Knopfdruck eines angemeldeten Nutzers. Bei wachsendem Volumen wird auf einen Anbieter mit API-Schlüssel gewechselt; dafür genügt ein weiterer `GeocodeProvider`.
 
 ## Datenmodell und Speicherung
 
