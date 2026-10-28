@@ -10,7 +10,7 @@ Keine Strukturänderungen.
 
 Aufräumpunkte:
 - `supabase/schema.sql` ist unvollständig: Die Tabelle `app_users` fehlt, obwohl `lib/users.ts` sie voraussetzt. Wird in Phase 2 durch Migrationen unter `supabase/migrations/` ersetzt (Supabase CLI), die den tatsächlichen Stand abbilden.
-- `node_modules/` und `.next/` sind im Repository eingecheckt (keine `.gitignore`), rund 250 MiB. Folge: Pushes und Clones sind langsam, Build-Artefakte verändern sich bei jedem lokalen Lauf. Eigener Aufräum-PR: `.gitignore` anlegen, beide Ordner aus dem Index entfernen (`git rm -r --cached`), Vercel installiert und baut selbst.
+- Es gab keine `.gitignore`; Build-Artefakte (`node_modules/`, `.next/`, `tsconfig.tsbuildinfo`) lagen untracked im Arbeitsverzeichnis und konnten versehentlich committet werden. `.gitignore` ergänzt (erledigt mit Aufgabe 1).
 - README war veraltet (sagte „alle Daten bleiben im Browser“ und „keine Umgebungsvariablen nötig“). Erforderliche Variablen: `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `SITE_PASSWORD`. Abschnitt Deployment im README korrigiert (erledigt mit Aufgabe 1).
 
 Aufgaben:
