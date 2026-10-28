@@ -8,11 +8,14 @@ import { PropertyForm } from "@/components/property-form";
 import { PropertyComparisonTable } from "@/components/property-comparison-table";
 import { PropertyCharts } from "@/components/charts/charts";
 import { StickyKpiBar } from "@/components/sticky-kpi-bar";
-import { Card } from "@/components/ui";
+import { Button, Card } from "@/components/ui";
+import { sampleProperties } from "@/lib/sample-data";
 
 export default function ObjectAnalysisPage() {
-  const { state, dispatch } = useAnalysis();
+  const { state, dispatch, sync } = useAnalysis();
   const objects = state.objects;
+  /** Erst anzeigen, wenn der Cloud-Abgleich durch ist, sonst flackert der leere Zustand. */
+  const settled = sync.status !== "checking";
 
   /**
    * Objekt, dessen Kennzahlen in der Leiste unten angezeigt werden.
@@ -33,16 +36,37 @@ export default function ObjectAnalysisPage() {
       <Toolbar mode="object" />
 
       {objects.length === 0 ? (
-        <Card className="text-center py-14">
-          <p className="font-display text-lg tracking-wide uppercase text-ink">
-            Noch keine Objekte angelegt
-          </p>
-          <p className="text-sm text-muted mt-2 max-w-md mx-auto leading-relaxed">
-            Über „Neues Objekt“ ein leeres Objekt anlegen, mit „Beispieldaten
-            laden“ zwei fiktive Objekte zum Ausprobieren einfügen oder eine
-            bestehende Excel-Liste importieren.
-          </p>
-        </Card>
+        settled ? (
+          <Card className="text-center py-14">
+            <p className="font-display text-lg tracking-wide uppercase text-ink">
+              Noch keine Objekte angelegt
+            </p>
+            <p className="text-sm text-muted mt-2 max-w-md mx-auto leading-relaxed">
+              Ein Objekt ist eine Ferienunterkunft mit Preis, Auslastung und
+              Kosten. Daraus entstehen Umsatz, Gewinn, Break-even und die
+              Objektbewertung. Zum Kennenlernen ein fiktives Beispielobjekt
+              laden, über „Neues Objekt“ leer starten oder eine bestehende
+              Excel-Liste importieren.
+            </p>
+            <div className="mt-5 flex justify-center">
+              <Button
+                variant="primary"
+                onClick={() =>
+                  dispatch({
+                    type: "addObjects",
+                    objects: [sampleProperties()[0]],
+                  })
+                }
+              >
+                Beispielobjekt laden
+              </Button>
+            </div>
+          </Card>
+        ) : (
+          <Card className="text-center py-14">
+            <p className="text-sm text-muted">Datenstand wird geladen …</p>
+          </Card>
+        )
       ) : (
         <>
           <div className="space-y-6">

@@ -4,6 +4,7 @@ import "./globals.css";
 import { AnalysisProvider } from "@/components/providers";
 import { SiteHeader } from "@/components/header";
 import { SyncStatus } from "@/components/sync-status";
+import Link from "next/link";
 
 const display = Oswald({
   variable: "--font-oswald",
@@ -47,6 +48,11 @@ export default function RootLayout({
                 per JSON-Export oder Cloud-Speicherung.
               </span>
               <SyncStatus />
+              <nav aria-label="Rechtliches" className="flex gap-x-4 w-full sm:w-auto">
+                <Link href="/impressum" className="hover:text-ink">Impressum</Link>
+                <Link href="/datenschutz" className="hover:text-ink">Datenschutz</Link>
+                <Link href="/agb" className="hover:text-ink">AGB</Link>
+              </nav>
             </div>
           </footer>
         </AnalysisProvider>

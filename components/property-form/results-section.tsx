@@ -7,6 +7,7 @@ import { fmtEur, fmtNum } from "@/lib/format";
 
 export function ResultsSection({
   derived,
+  missing,
   scenarios,
   active,
 }: SectionProps) {
@@ -26,7 +27,7 @@ export function ResultsSection({
           }
           sub={
             derived.breakEvenNights == null
-              ? "Dafür werden Fixkosten und ein positiver Deckungsbeitrag pro Nacht benötigt."
+              ? (missing.breakEven ?? "Dafür werden Fixkosten und ein positiver Deckungsbeitrag pro Nacht benötigt.")
               : derived.breakEvenNights > 30
                 ? "Über 30 Nächten: Bei diesen Kosten ist das Objekt selbst bei Vollauslastung nicht profitabel."
                 : `Entspricht ${fmtNum(derived.breakEvenOccupancyPct, 0)} % Auslastung (Basis 30 Tage).`
@@ -49,7 +50,7 @@ export function ResultsSection({
           sub={
             derived.paybackMonths != null
               ? "Startinvestition / Gewinn pro Monat"
-              : "Dafür werden eine Startinvestition (Tab 'Markt & Investition') und ein positiver Monatsgewinn benötigt."
+              : (missing.payback ?? "Dafür werden eine Startinvestition (Tab 'Markt & Investition') und ein positiver Monatsgewinn benötigt.")
           }
         />
       </div>

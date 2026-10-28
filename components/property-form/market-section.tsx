@@ -10,6 +10,7 @@ export function MarketSection({
   property,
   derived,
   errors,
+  missing,
   set,
   active,
 }: SectionProps) {
@@ -42,7 +43,7 @@ export function MarketSection({
         <MetricsCard
           label="Miete pro qm"
           value={fmtEur(derived.rentPerSqm)}
-          sub="Kaltmiete / Gesamtfläche"
+          sub={missing.rentPerSqm ?? "Kaltmiete / Gesamtfläche"}
         />
         <MetricsCard
           label="Mietpreis-Abweichung zum Markt"
@@ -54,7 +55,7 @@ export function MarketSection({
           sub={
             derived.marketDeviation != null
               ? "(Miete pro qm − Marktpreis) / Marktpreis"
-              : "Dafür werden Kaltmiete, Fläche und ein Marktpreis größer 0 benötigt."
+              : (missing.marketDeviation ?? "Dafür werden Kaltmiete, Fläche und ein Marktpreis größer 0 benötigt.")
           }
           tone={
             derived.marketDeviation == null
@@ -90,7 +91,7 @@ export function MarketSection({
             sub={
               derived.paybackMonths != null
                 ? "Startinvestition / Gewinn pro Monat"
-                : "Dafür werden eine Startinvestition und ein positiver Monatsgewinn benötigt."
+                : (missing.payback ?? "Dafür werden eine Startinvestition und ein positiver Monatsgewinn benötigt.")
             }
           />
         </div>

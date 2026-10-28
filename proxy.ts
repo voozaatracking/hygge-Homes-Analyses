@@ -1,5 +1,6 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
+import { readPublicKey } from "@/lib/supabase/keys";
 
 /**
  * Zugangsschutz für alle Seiten (Next 16: proxy.ts statt middleware.ts).
@@ -15,7 +16,14 @@ import { NextResponse, type NextRequest } from "next/server";
  * Ohne Supabase-Konfiguration bleibt die Seite in der lokalen Entwicklung
  * offen; in Produktion wird auf die Login-Seite geleitet.
  */
-const PUBLIC_PATHS = ["/login", "/auth", "/no-access"];
+const PUBLIC_PATHS = [
+  "/login",
+  "/auth",
+  "/no-access",
+  "/impressum",
+  "/datenschutz",
+  "/agb",
+];
 
 function isPublic(pathname: string): boolean {
   return PUBLIC_PATHS.some(
@@ -25,7 +33,7 @@ function isPublic(pathname: string): boolean {
 
 export async function proxy(request: NextRequest) {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  const key = readPublicKey(process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY);
   const pathname = request.nextUrl.pathname;
 
   if (!url || !key) {

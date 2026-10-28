@@ -1,6 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { readPublicKey } from "@/lib/supabase/keys";
 
 /**
  * Supabase-Client für Server-Komponenten und Route Handler, Sitzung aus den
@@ -18,7 +19,7 @@ export async function getServerSupabase(): Promise<SupabaseClient | null> {
   const cookieStore = await cookies();
 
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  const key = readPublicKey(process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY);
   if (!url || !key) return null;
   return createServerClient(url, key, {
     cookies: {
