@@ -1,5 +1,7 @@
 "use client";
 
+import { useAnalysis } from "@/components/providers";
+
 import { useMemo, useState } from "react";
 import type { PropertyInput } from "@/lib/types/analysis";
 import {
@@ -100,9 +102,10 @@ export function StickyKpiBar({
 
   const active =
     properties.find((p) => p.id === activeId) ?? properties[0] ?? null;
+  const { deriveContext } = useAnalysis();
   const derived = useMemo(
-    () => (active ? deriveProperty(active) : null),
-    [active]
+    () => (active ? deriveProperty(active, deriveContext) : null),
+    [active, deriveContext]
   );
 
   if (!active || !derived) return null;

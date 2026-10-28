@@ -15,7 +15,7 @@ import {
 
 export function sampleProperties(): PropertyInput[] {
   const a = emptyProperty("Beispiel: Apartment Altstadt (65 qm)");
-  a.address = "Lüneburg, Altstadt";
+  a.address.text = "Lüneburg, Altstadt";
   a.areaSqm = 65;
   a.bedrooms = 3;
   a.beds = 5;
@@ -31,7 +31,7 @@ export function sampleProperties(): PropertyInput[] {
   a.marketRentPerSqm = 11;
 
   const b = emptyProperty("Beispiel: Ferienhaus am Wasser (90 qm)");
-  b.address = "Nordniedersachsen";
+  b.address.text = "Nordniedersachsen";
   b.areaSqm = 90;
   b.bedrooms = 4;
   b.beds = 8;

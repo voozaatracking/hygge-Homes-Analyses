@@ -16,6 +16,11 @@ import { AUTOSAVE_KEY, useAutosave } from "@/hooks/use-autosave";
 import { useCloudSync } from "@/hooks/use-cloud-sync";
 import { useProfile, type ProfileInfo } from "@/hooks/use-profile";
 import type { ProfileDefaults } from "@/lib/profile/settings";
+import {
+  EMPTY_CONTEXT,
+  type DeriveContext,
+} from "@/lib/calculations/property-calculations";
+import { isLatLng } from "@/lib/geo/distance";
 
 /**
  * Zustand der Analyse (Objekte, Standorte) als Reducer. Zwischenspeicherung
@@ -174,6 +179,8 @@ const AnalysisContext = createContext<{
   profile: ProfileInfo | null;
   /** Profil neu laden, z. B. nach dem Speichern auf /profil. */
   refreshProfile: () => Promise<ProfileInfo | null>;
+  /** Kontext der Kennzahlen-Ableitung (Firmensitz-Koordinaten), IO-frei. */
+  deriveContext: DeriveContext;
   /** Konflikt auflösen: Serverstand laden (lokal verwerfen) oder trotzdem speichern. */
   resolveConflict: (mode: "loadServer" | "overwrite") => void;
 } | null>(null);
@@ -224,9 +231,22 @@ export function AnalysisProvider({ children }: { children: ReactNode }) {
   });
   useAutosave(autosaveKeyRef, state.objects, state.locations, state.dirty);
 
+  const deriveContext = useMemo<DeriveContext>(() => {
+    const hq = profile?.settings.hq;
+    return isLatLng(hq) ? { hq: { lat: hq.lat, lng: hq.lng } } : EMPTY_CONTEXT;
+  }, [profile]);
+
   const value = useMemo(
-    () => ({ state, dispatch, sync, resolveConflict, profile, refreshProfile }),
-    [state, dispatch, sync, resolveConflict, profile, refreshProfile]
+    () => ({
+      state,
+      dispatch,
+      sync,
+      resolveConflict,
+      profile,
+      refreshProfile,
+      deriveContext,
+    }),
+    [state, dispatch, sync, resolveConflict, profile, refreshProfile, deriveContext]
   );
   return (
     <AnalysisContext.Provider value={value}>

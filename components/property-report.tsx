@@ -34,7 +34,7 @@ export function PropertyReport({
         <p className="report-sub">
           Objektsteckbrief · Wirtschaftlichkeitsanalyse · Stand {today}
         </p>
-        {property.address ? <p>{property.address}</p> : null}
+        {property.address.text ? <p>{property.address.text}</p> : null}
         {property.listingUrl ? (
           <p className="report-muted">{property.listingUrl}</p>
         ) : null}
@@ -60,6 +60,18 @@ export function PropertyReport({
               <td>Energieklasse</td>
               <td>{derived.energy.energyClass ?? dash}</td>
             </tr>
+            {derived.distance.km != null ? (
+              <tr>
+                <td>
+                  {derived.distance.source === "hq"
+                    ? "Entfernung zum Firmensitz"
+                    : "Entfernung zum Ausgangspunkt"}
+                </td>
+                <td>{`${fmtNum(derived.distance.km, 1)} km (geschätzt aus Luftlinie)`}</td>
+                <td>Fahrtkosten Reinigung</td>
+                <td>{val(fmtEur(derived.travel.amount))}</td>
+              </tr>
+            ) : null}
           </tbody>
         </table>
       </section>

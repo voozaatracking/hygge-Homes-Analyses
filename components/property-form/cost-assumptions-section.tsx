@@ -1,10 +1,11 @@
 "use client";
 
 import type { SectionProps } from "@/components/property-form/types";
-import { CheckboxField, NumberField } from "@/components/fields";
+import { AddressGeocodeField } from "@/components/property-form/address-geocode-field";
+import { CheckboxField, NumberField, RadioGroup, SelectField } from "@/components/fields";
 import { Notice, SourceBadge } from "@/components/ui";
 import { CalculationBreakdown, MetricsCard } from "@/components/metrics-card";
-import { fmtEur } from "@/lib/format";
+import { fmtEur, fmtNum } from "@/lib/format";
 
 export function CostAssumptionsSection({
   property,
@@ -181,7 +182,121 @@ export function CostAssumptionsSection({
           )}
         </div>
 
-        {/* Plattformprovision */}
+        {/* Entfernung und Fahrtkosten für die Reinigung */}
+      <div className="mt-4 border border-line rounded-xl p-4 bg-card-soft/40 space-y-3">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h4 className="text-sm font-medium text-ink">Entfernung und Fahrtkosten</h4>
+          {derived.travel.amount != null ? (
+            <span className="flex items-center gap-2 text-sm tabular">
+              {fmtEur(derived.travel.amount)} / Monat
+              <SourceBadge source="derived" />
+            </span>
+          ) : property.travel.enabled ? (
+            <span className="text-sm text-muted">noch nicht berechenbar</span>
+          ) : null}
+        </div>
+        <p className="text-xs text-muted">
+          Adresse und Koordinaten des Objekts unter Grunddaten pflegen
+          {property.address.text ? ` (aktuell: ${property.address.text})` : ""}.
+        </p>
+        <p className="text-sm text-ink">
+          {derived.distance.source === "hq" ? (
+            derived.distance.km != null ? (
+              <>
+                Entfernung zum Firmensitz:{" "}
+                <strong className="tabular">{fmtNum(derived.distance.km, 1)} km</strong>{" "}
+                <span className="text-muted">(geschätzt aus Luftlinie)</span>
+              </>
+            ) : (
+              <span className="text-muted">{derived.distance.note}</span>
+            )
+          ) : derived.distance.km != null ? (
+            <>
+              Entfernung zum Ausgangspunkt:{" "}
+              <strong className="tabular">{fmtNum(derived.distance.km, 1)} km</strong>{" "}
+              <span className="text-muted">(geschätzt aus Luftlinie)</span>
+            </>
+          ) : (
+            <span className="text-muted">{derived.distance.note}</span>
+          )}
+        </p>
+        <CheckboxField
+          label="Fahrtkosten für Reinigung einrechnen (Fixkosten, je Fahrt Hin und zurück)"
+          checked={property.travel.enabled}
+          onChange={(v) => set((d) => (d.travel.enabled = v))}
+        />
+        {property.travel.enabled ? (
+          <div className="space-y-3">
+            <RadioGroup
+              legend="Ausgangspunkt"
+              value={property.travel.originMode}
+              onChange={(v) =>
+                set((d) => (d.travel.originMode = v as "hq" | "custom"))
+              }
+              options={[
+                { value: "hq", label: "Firmensitz (Adresse aus dem Profil)" },
+                { value: "custom", label: "Andere Adresse" },
+              ]}
+            />
+            {property.travel.originMode === "custom" ? (
+              <AddressGeocodeField
+                label="Ausgangsadresse"
+                value={property.travel.customOrigin}
+                onChange={(next) => set((d) => (d.travel.customOrigin = next))}
+                placeholder="Straße Hausnummer, PLZ Ort"
+              />
+            ) : null}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <SelectField
+                label="Kostenart"
+                value={property.travel.costMode}
+                onChange={(v) =>
+                  set((d) => (d.travel.costMode = v as "perKm" | "perTrip"))
+                }
+                options={[
+                  { value: "perKm", label: "Kilometerpauschale" },
+                  { value: "perTrip", label: "Fixpreis je Fahrt" },
+                ]}
+                help="Kilometerpauschale: Strecke × 2 (Hin und zurück) × Satz × Fahrten. Fixpreis: Preis je Fahrt (Hin und zurück) × Fahrten."
+              />
+              {property.travel.costMode === "perKm" ? (
+                <NumberField
+                  label="Kilometerpauschale"
+                  unit="€/km"
+                  value={property.travel.ratePerKm}
+                  onChange={(v) => set((d) => (d.travel.ratePerKm = v))}
+                  error={errors.travelRatePerKm}
+                  hint={derived.travel.note}
+                />
+              ) : (
+                <NumberField
+                  label="Preis je Fahrt"
+                  unit="€"
+                  value={property.travel.pricePerTrip}
+                  onChange={(v) => set((d) => (d.travel.pricePerTrip = v))}
+                  error={errors.travelPricePerTrip}
+                  hint={derived.travel.note}
+                />
+              )}
+              <NumberField
+                label="Fahrten pro Monat"
+                unit="Fahrten"
+                value={property.travel.tripsPerMonth}
+                onChange={(v) => set((d) => (d.travel.tripsPerMonth = v))}
+                error={errors.travelTripsPerMonth}
+                placeholder={
+                  property.cleaningAssumptions.changesPerMonth != null
+                    ? `Standard: ${fmtNum(property.cleaningAssumptions.changesPerMonth, 0)}`
+                    : undefined
+                }
+                help="Leer lassen, um die Reinigungen pro Monat des Objekts zu verwenden."
+              />
+            </div>
+          </div>
+        ) : null}
+      </div>
+
+      {/* Plattformprovision */}
         <div className="mt-6 border border-line rounded-xl p-4 bg-card-soft/40 space-y-3">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <h4 className="text-sm font-medium text-ink">Plattformprovision</h4>

@@ -96,6 +96,15 @@ export function validateProperty(input: PropertyInput): FieldErrors {
     errors.touristTaxPerPersonNight =
       "Die Kurtaxe darf nicht negativ sein.";
   }
+  if (isSet(input.travel.ratePerKm) && input.travel.ratePerKm < 0) {
+    errors.travelRatePerKm = "Die Kilometerpauschale darf nicht negativ sein.";
+  }
+  if (isSet(input.travel.pricePerTrip) && input.travel.pricePerTrip < 0) {
+    errors.travelPricePerTrip = "Der Preis je Fahrt darf nicht negativ sein.";
+  }
+  if (isSet(input.travel.tripsPerMonth) && input.travel.tripsPerMonth < 0) {
+    errors.travelTripsPerMonth = "Die Fahrten pro Monat dürfen nicht negativ sein.";
+  }
   if (isSet(input.startInvestment) && input.startInvestment < 0) {
     errors.startInvestment =
       "Die Startinvestition darf nicht negativ sein.";

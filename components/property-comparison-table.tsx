@@ -16,6 +16,7 @@ import {
   type ExportColumn,
 } from "@/lib/io/export";
 import { Button, Card, ConfirmDialog, SectionTitle } from "@/components/ui";
+import { useAnalysis } from "@/components/providers";
 
 interface Row {
   input: PropertyInput;
@@ -136,6 +137,21 @@ const columns: Column[] = [
         : "nicht berechenbar",
   },
   {
+    key: "distance",
+    label: "Entfernung Firmensitz (km, geschätzt)",
+    value: (r) => (r.derived.distance.source === "hq" ? r.derived.distance.km : null),
+    render: (r) =>
+      r.derived.distance.source === "hq" && r.derived.distance.km != null
+        ? fmtNum(r.derived.distance.km, 1)
+        : "–",
+  },
+  {
+    key: "travel",
+    label: "Fahrtkosten Reinigung (€/Monat)",
+    value: (r) => r.derived.travel.amount,
+    render: (r) => fmtEur(r.derived.travel.amount),
+  },
+  {
     key: "cleaning",
     label: "Reinigungskosten (€/Monat)",
     value: (r) => r.derived.cleaningUsed?.amount ?? null,
@@ -173,10 +189,14 @@ export function PropertyComparisonTable({
   const [direction, setDirection] = useState<SortDirection>("desc");
   const [removeId, setRemoveId] = useState<string | null>(null);
 
+  const { deriveContext } = useAnalysis();
   const rows: Row[] = useMemo(
     () =>
-      properties.map((input) => ({ input, derived: deriveProperty(input) })),
-    [properties]
+      properties.map((input) => ({
+        input,
+        derived: deriveProperty(input, deriveContext),
+      })),
+    [properties, deriveContext]
   );
 
   const sorted = useMemo(() => {

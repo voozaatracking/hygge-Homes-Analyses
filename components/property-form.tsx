@@ -5,6 +5,7 @@ import type { PropertyInput } from "@/lib/types/analysis";
 import { deriveProperty } from "@/lib/calculations/property-calculations";
 import { deriveScenarios } from "@/lib/calculations/scenarios";
 import { PropertyReport } from "@/components/property-report";
+import { useAnalysis } from "@/components/providers";
 import { validateProperty } from "@/lib/validation/rules";
 import { fmtEur, fmtNum, fmtPct } from "@/lib/format";
 import { TextField } from "@/components/fields";
@@ -45,8 +46,15 @@ export function PropertyForm({
   const [confirmRemove, setConfirmRemove] = useState(false);
   const [printing, setPrinting] = useState(false);
   const [activeTab, setActiveTab] = useState<TabKey>("basics");
-  const derived = useMemo(() => deriveProperty(property), [property]);
-  const scenarios = useMemo(() => deriveScenarios(property), [property]);
+  const { deriveContext } = useAnalysis();
+  const derived = useMemo(
+    () => deriveProperty(property, deriveContext),
+    [property, deriveContext]
+  );
+  const scenarios = useMemo(
+    () => deriveScenarios(property, deriveContext),
+    [property, deriveContext]
+  );
   const errors = useMemo(() => validateProperty(property), [property]);
 
   useEffect(() => {

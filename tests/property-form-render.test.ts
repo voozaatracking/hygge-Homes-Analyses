@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { PropertyForm } from "@/components/property-form";
+import { AnalysisProvider } from "@/components/providers";
 import { sampleProperties } from "@/lib/sample-data";
 import { emptyProperty } from "@/lib/utils";
 
@@ -13,13 +14,19 @@ import { emptyProperty } from "@/lib/utils";
 const noop = () => {};
 
 function render(property = sampleProperties()[0]) {
+  // Der Provider liefert den Ableitungskontext; Effekte laufen beim
+  // statischen Rendern nicht, es gibt also keine Netzwerkzugriffe.
   return renderToStaticMarkup(
-    createElement(PropertyForm, {
-      property,
-      onChange: noop,
-      onRemove: noop,
-      onDuplicate: noop,
-    })
+    createElement(
+      AnalysisProvider,
+      null,
+      createElement(PropertyForm, {
+        property,
+        onChange: noop,
+        onRemove: noop,
+        onDuplicate: noop,
+      })
+    )
   );
 }
 
@@ -38,6 +45,7 @@ describe("PropertyForm rendert alle Sektionen", () => {
       "Monatliche Kosten",
       ">Strom<",
       ">Reinigung<",
+      "Entfernung und Fahrtkosten",
       "Plattformprovision",
       "Wirtschaftlichkeit",
       "Marktpreis",
