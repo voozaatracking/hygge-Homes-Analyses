@@ -56,9 +56,9 @@ export default function Home() {
       </div>
 
       <div className="max-w-3xl bg-card-soft/70 border border-line rounded-xl p-5 text-sm text-muted leading-relaxed">
-        Alle Eingaben bleiben im Browser und werden nirgendwo hochgeladen.
-        Gespeichert wird über den JSON-Export in der Werkzeugleiste, geladen
-        über „JSON laden“. Bestehende Excel-Listen lassen sich über den
+        Der Datenstand wird je Nutzer in der Cloud gespeichert und im Browser
+        zwischengespeichert. Dauerhaft gesichert wird über den JSON-Export in
+        der Werkzeugleiste, geladen über „JSON laden“. Bestehende Excel-Listen lassen sich über den
         Datei-Import übernehmen.
       </div>
     </div>
