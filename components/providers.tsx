@@ -14,6 +14,8 @@ import { emptyLocation, emptyProperty } from "@/lib/utils";
 import type { SyncState } from "@/lib/sync";
 import { AUTOSAVE_KEY, useAutosave } from "@/hooks/use-autosave";
 import { useCloudSync } from "@/hooks/use-cloud-sync";
+import { useProfile, type ProfileInfo } from "@/hooks/use-profile";
+import type { ProfileDefaults } from "@/lib/profile/settings";
 
 /**
  * Zustand der Analyse (Objekte, Standorte) als Reducer. Zwischenspeicherung
@@ -28,12 +30,12 @@ interface AnalysisState {
 }
 
 type Action =
-  | { type: "addObject" }
+  | { type: "addObject"; defaults?: ProfileDefaults }
   | { type: "updateObject"; object: PropertyInput }
   | { type: "removeObject"; id: string }
   | { type: "duplicateObject"; id: string }
   | { type: "addObjects"; objects: PropertyInput[] }
-  | { type: "addLocation" }
+  | { type: "addLocation"; defaults?: ProfileDefaults }
   | { type: "updateLocation"; location: LocationInput }
   | { type: "removeLocation"; id: string }
   | { type: "duplicateLocation"; id: string }
@@ -62,7 +64,7 @@ function reducer(state: AnalysisState, action: Action): AnalysisState {
         dirty: true,
         objects: [
           ...state.objects,
-          emptyProperty(`Objekt ${state.objects.length + 1}`),
+          emptyProperty(`Objekt ${state.objects.length + 1}`, action.defaults),
         ],
       };
     case "updateObject":
@@ -102,7 +104,7 @@ function reducer(state: AnalysisState, action: Action): AnalysisState {
         dirty: true,
         locations: [
           ...state.locations,
-          emptyLocation(`Standort ${state.locations.length + 1}`),
+          emptyLocation(`Standort ${state.locations.length + 1}`, action.defaults),
         ],
       };
     case "updateLocation":
@@ -168,23 +170,46 @@ const AnalysisContext = createContext<{
   state: AnalysisState;
   dispatch: (action: Action) => void;
   sync: SyncInfo;
+  /** Profil des Nutzers (Standardannahmen, Firmendaten); null ohne Sitzung. */
+  profile: ProfileInfo | null;
+  /** Profil neu laden, z. B. nach dem Speichern auf /profil. */
+  refreshProfile: () => Promise<ProfileInfo | null>;
   /** Konflikt auflösen: Serverstand laden (lokal verwerfen) oder trotzdem speichern. */
   resolveConflict: (mode: "loadServer" | "overwrite") => void;
 } | null>(null);
 
 export function AnalysisProvider({ children }: { children: ReactNode }) {
-  const [state, dispatch] = useReducer(reducer, initialState);
+  const [state, rawDispatch] = useReducer(reducer, initialState);
+  const { profile, refreshProfile } = useProfile();
+
+  // Neue Objekte und Standorte erhalten die Standardannahmen des Profils,
+  // ohne dass Aufrufer sie kennen müssen. Duplikate übernehmen die Werte
+  // des Originals; Importe bleiben unverändert.
+  const dispatch = useCallback(
+    (action: Action) => {
+      if (
+        (action.type === "addObject" || action.type === "addLocation") &&
+        action.defaults === undefined &&
+        profile
+      ) {
+        rawDispatch({ ...action, defaults: profile.settings.defaults });
+        return;
+      }
+      rawDispatch(action);
+    },
+    [profile]
+  );
   /** Nutzerbezogener Schlüssel des Browser-Zwischenspeichers, gesetzt vom Cloud-Sync. */
   const autosaveKeyRef = useRef<string | null>(null);
 
   const onLoad = useCallback(
     (data: { objects: PropertyInput[]; locations: LocationInput[] }) =>
-      dispatch({ type: "loadFile", ...data }),
+      rawDispatch({ type: "loadFile", ...data }),
     []
   );
   const onRestoreAutosave = useCallback(
     (data: { objects: PropertyInput[]; locations: LocationInput[] }) =>
-      dispatch({ type: "restoreAutosave", ...data }),
+      rawDispatch({ type: "restoreAutosave", ...data }),
     []
   );
 
@@ -200,8 +225,8 @@ export function AnalysisProvider({ children }: { children: ReactNode }) {
   useAutosave(autosaveKeyRef, state.objects, state.locations, state.dirty);
 
   const value = useMemo(
-    () => ({ state, dispatch, sync, resolveConflict }),
-    [state, sync, resolveConflict]
+    () => ({ state, dispatch, sync, resolveConflict, profile, refreshProfile }),
+    [state, dispatch, sync, resolveConflict, profile, refreshProfile]
   );
   return (
     <AnalysisContext.Provider value={value}>

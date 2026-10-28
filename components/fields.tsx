@@ -130,7 +130,7 @@ export function TextField({
   onChange: (value: string) => void;
   help?: string;
   placeholder?: string;
-  type?: "text" | "url" | "date";
+  type?: "text" | "url" | "date" | "email";
 }) {
   const id = useId();
   return (
