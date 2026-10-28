@@ -44,6 +44,7 @@ npm run build      # Produktions-Build
    | `SUPABASE_URL` | Project URL des Supabase-Projekts |
    | `SUPABASE_SERVICE_ROLE_KEY` | service_role-Key; nur serverseitig, gelangt nie in den Browser |
    | `SITE_PASSWORD` | Passwort des Master-Admin-Zugangs („admin“) und Signaturschlüssel der Session-Cookies |
+   | `CRON_SECRET` | Schützt `/api/cron/keepalive`; Vercel sendet den Wert automatisch als Bearer-Token beim täglichen Cron-Aufruf (`vercel.json`), der das Supabase-Free-Projekt vor dem Pausieren bewahrt |
 
    Ohne `SITE_PASSWORD` leitet die Produktion auf die Login-Seite, ohne Supabase-Variablen ist die Cloud-Speicherung deaktiviert.
 5. Jeder Push auf `main` erzeugt ein neues Deployment.
