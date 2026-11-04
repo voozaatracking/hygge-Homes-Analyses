@@ -8,7 +8,10 @@ import type { EmailOtpType } from "@supabase/supabase-js";
  * Unterstützte Varianten:
  * - ?code=…                 PKCE-Code (Reset-Links, die der Browser angefordert hat)
  * - ?token_hash=…&type=…    Token-Hash (E-Mail-Vorlagen mit {{ .TokenHash }},
- *                           siehe README; Einladungen unterstützen kein PKCE)
+ *                           siehe docs/supabase/email-templates; Einladungen
+ *                           unterstützen kein PKCE). Registrierung: type=email
+ *                           (verifyOtp akzeptiert auch das ältere "signup"),
+ *                           Einladung: invite, Reset: recovery.
  * - weder noch              Implizite Variante: Die Sitzung steckt im URL-Fragment,
  *                           das nur der Browser sieht. Weiterleitung auf die
  *                           Zielseite, deren Client die Sitzung übernimmt.

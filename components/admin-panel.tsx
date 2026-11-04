@@ -15,6 +15,7 @@ interface AdminUser {
   active: boolean;
   createdAt: string | null;
   lastSignInAt: string | null;
+  emailConfirmedAt: string | null;
 }
 
 const inputClass =
@@ -300,6 +301,7 @@ export function AdminPanel({ selfId }: { selfId: string }) {
                   <th className={headerCell}>Plan</th>
                   <th className={headerCell}>Gültig bis</th>
                   <th className={headerCell}>Status</th>
+                  <th className={headerCell}>E-Mail bestätigt</th>
                   <th className={headerCell}>Letzte Anmeldung</th>
                   <th className={headerCell}>Aktionen</th>
                 </tr>
@@ -347,6 +349,11 @@ export function AdminPanel({ selfId }: { selfId: string }) {
                       <td className={bodyCell}>
                         <span className={user.active ? "text-sage" : "text-brick"}>
                           {user.active ? "aktiv" : "deaktiviert"}
+                        </span>
+                      </td>
+                      <td className={bodyCell}>
+                        <span className={user.emailConfirmedAt ? "text-sage" : "text-brick"}>
+                          {user.emailConfirmedAt ? "ja" : "nein"}
                         </span>
                       </td>
                       <td className={`${bodyCell} text-muted whitespace-nowrap`}>

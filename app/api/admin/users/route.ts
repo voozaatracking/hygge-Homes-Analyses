@@ -10,7 +10,7 @@ import {
  * Admin-API der Nutzerverwaltung. Nur für Sitzungen mit Rolle "admin"
  * (serverseitig aus profiles gelesen, lib/access.ts).
  *
- * GET    → Liste aller Profile inkl. letzter Anmeldung aus auth.users
+ * GET    → Liste aller Profile inkl. letzter Anmeldung und E-Mail-Bestätigung aus auth.users
  * POST   → Einladen { email, role, plan, planValidUntil? }
  * PATCH  → { id, action: "setRole" | "setPlan" | "activate" | "deactivate",
  *            role?, plan?, planValidUntil? }
@@ -30,6 +30,8 @@ export interface AdminUserRow {
   active: boolean;
   createdAt: string | null;
   lastSignInAt: string | null;
+  /** Zeitpunkt der E-Mail-Bestätigung aus auth.users; null = unbestätigt. */
+  emailConfirmedAt: string | null;
 }
 
 const ROLES: Role[] = ["admin", "member"];
@@ -95,6 +97,7 @@ export async function GET() {
 
   // Letzte Anmeldung liegt nur in auth.users; über den Admin-Client lesen.
   const lastSignIn = new Map<string, string | null>();
+  const confirmed = new Map<string, string | null>();
   const authUsers = await supabase.auth.admin.listUsers({
     page: 1,
     perPage: 1000,
@@ -102,6 +105,7 @@ export async function GET() {
   if (!authUsers.error) {
     for (const user of authUsers.data.users) {
       lastSignIn.set(user.id, user.last_sign_in_at ?? null);
+      confirmed.set(user.id, user.email_confirmed_at ?? null);
     }
   }
 
@@ -115,6 +119,7 @@ export async function GET() {
     active: Boolean(row.active),
     createdAt: (row.created_at as string | null) ?? null,
     lastSignInAt: lastSignIn.get(row.id as string) ?? null,
+    emailConfirmedAt: confirmed.get(row.id as string) ?? null,
   }));
 
   return NextResponse.json({ ok: true, users });

@@ -29,7 +29,7 @@ export function describeAuthError(message: string | undefined): string {
     return "E-Mail oder Passwort ist falsch.";
   }
   if (text.includes("email not confirmed")) {
-    return "Die E-Mail-Adresse ist noch nicht bestätigt. Bitte den Link aus der Einladung öffnen.";
+    return "Bitte bestätige zuerst deine E-Mail-Adresse. Der Link steht in der E-Mail, die wir dir geschickt haben.";
   }
   if (text.includes("rate limit") || text.includes("too many")) {
     return "Zu viele Versuche. Bitte kurz warten und erneut versuchen.";

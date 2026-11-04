@@ -22,7 +22,8 @@ Ein Profil pro Nutzer mit mehr Einstellungen und individualisierbarem UI.
 
 Entscheidung des Owners:
 - Auth-Strategie: Supabase Auth, E-Mail und Passwort. Der eigene Login (`lib/session.ts`, `lib/passwords.ts`, Master-Notzugang über `SITE_PASSWORD`) wird vollständig abgelöst.
-- Zugang zunächst nur per Einladung durch den Admin, Selbstregistrierung wird erst mit Phase 3 (Payment) freigeschaltet.
+- Zugang: offene Selbstregistrierung mit Bestätigungsmail (`/registrieren`, `/api/register`), Startplan per Konstante `lib/config/registration.ts` (derzeit Pro, 180 Tage); Einladung durch den Admin bleibt zusätzlich möglich. Phase 3 setzt den Startplan auf none und führt zur Abo-Seite.
+- E-Mail-Versand: Custom SMTP über Strato (`smtp.strato.de`, Port 465), Vorlagen in `docs/supabase/email-templates/`, Owner-Schritte in `docs/supabase/email-setup.md`.
 - Keine Teams. Daten hängen am Nutzer.
 - Tabelle `profiles` mit `role` (admin, member), `plan` (none, internal, pro) und `plan_valid_until`. Kein Free-Tier: „pro“ ist der bezahlte Plan, „internal“ für Konten ohne Payment. Zugriffsregel: aktiv und (Admin oder internal oder pro mit leerem oder zukünftigem Datum). Serverseitige Prüfung bei jedem Datenzugriff in `lib/access.ts`; bis Payment existiert, setzt der Admin den Plan manuell, später schreibt der Payment-Webhook dieselben Felder.
 - Datenzugriff bleibt serverseitig über Route Handler und Service-Role-Key; der Browser spricht nicht direkt mit Tabellen. RLS auf allen Tabellen ohne Policies.
@@ -41,7 +42,7 @@ Teilschritte:
 Entscheidungen für 2c und 2d (getroffen): Einzelnutzer ohne Teams; alle Profil- und Firmenfelder optional, fehlende Werte werden nicht gerendert; `profiles.settings` ist versioniertes JSON mit Zod-Defaults, nur Rolle, Plan, Gültigkeit und aktiv bleiben Spalten; Entfernung ohne manuelle Überschreibung; Fahrtkosten sind Fixkosten, Wert 0 bedeutet keine Zeile; Geokodierung nur serverseitig, Koordinaten werden mit der Adresse gespeichert und nur bei geändertem Adresstext neu ermittelt; Logo als Data-URL (PNG, JPEG, SVG, maximal 300 KB) ohne Storage-Bucket; PDF über Druckansicht ohne PDF-Bibliothek.
 
 ### 3. Abo und Payment
-**Nächster Schritt.** Anbieterentscheidung Stripe oder Mollie offen. Vorbereitung unabhängig vom Anbieter: Plan und Rolle am Nutzer (vorhanden in `profiles`), eigene Abo-Tabelle, zentrales Feature-Gating serverseitig (Einstiegspunkt `lib/access.ts`), Webhook-Route, Selbstregistrierung freischalten.
+**Nächster Schritt.** Anbieterentscheidung Stripe oder Mollie offen. Registrierung und E-Mail-Bestätigung existieren bereits (PR 11). Es fehlen: 1. Startplan auf none (`REGISTRATION.defaultPlan` in `lib/config/registration.ts`), 2. Abo-Seite, auf die Konten ohne Zugang geführt werden; danach eigene Abo-Tabelle, Webhook-Route und Feature-Gating über `lib/access.ts`.
 
 Status: offen, nächster Schritt nach Phase 2.
 
@@ -57,6 +58,8 @@ Stand PR 10 (Go-Live-Vorbereitung). Erledigt bedeutet im Code umgesetzt; Owner-S
 - [x] Hinweis-Konzept für fehlende Eingaben über das gesamte Objektformular (`lib/calculations/missing.ts`), nur Hinweise, keine Pflichtfelder.
 - [x] Rechtsseiten als Gerüst (`/impressum`, `/datenschutz`, `/agb`) mit Platzhaltern, aus dem Footer erreichbar.
 - [x] Rate-Limit für `/api/geocode`: 30 Anfragen pro Nutzer und Stunde, im Arbeitsspeicher je Serverinstanz (`lib/rate-limit.ts`).
+- [x] Selbstregistrierung mit Bestätigungsmail, Honeypot, Rate-Limit je IP, Startplan per Konstante, Kennzeichen „E-Mail bestätigt“ in der Verwaltung (PR 11).
+- [ ] Owner: E-Mail-Versand nach `docs/supabase/email-setup.md` (Custom SMTP Strato, Vorlagen, „Allow new users to sign up“, Rate-Limit für E-Mails, Test-Registrierung).
 - [ ] Owner: Rechtstexte für Impressum, Datenschutzerklärung und AGB einsetzen (geprüfte Inhalte, keine Platzhalter).
 - [ ] Owner: Supabase-Auth-Schritte 1 bis 7 aus der README abschließen (Migrationen inkl. 0004, SMTP, Redirect URLs, Datenübernahme, `0003_drop_app_users`).
 - [ ] Owner: Umgebungsvariablen in Vercel prüfen (`NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `CRON_SECRET`), `SITE_PASSWORD` entfernen.
