@@ -1,21 +1,30 @@
 import type { Metadata } from "next";
-import { Jost, Oswald } from "next/font/google";
+import localFont from "next/font/local";
 import "./globals.css";
 import { AnalysisProvider } from "@/components/providers";
 import { SiteHeader } from "@/components/header";
 import { SyncStatus } from "@/components/sync-status";
 import Link from "next/link";
 
-const display = Oswald({
+/*
+ * Schriften selbst gehostet (variable WOFF2, Subset Latin, SIL Open Font
+ * License, Dateien unter app/fonts/). Vorher next/font/google: Das lud die
+ * Dateien zur Build-Zeit von Google und ließ den Vercel-Build in Turbopack
+ * an "next/font/google queries have exactly one entry" scheitern. Die
+ * Ausgabe ist identisch: dieselben Schnitte, dieselben CSS-Variablen.
+ */
+const display = localFont({
+  src: "./fonts/oswald-latin.woff2",
   variable: "--font-oswald",
-  subsets: ["latin"],
-  weight: ["400", "500", "600"],
+  weight: "200 700",
+  display: "swap",
 });
 
-const sans = Jost({
+const sans = localFont({
+  src: "./fonts/jost-latin.woff2",
   variable: "--font-jost",
-  subsets: ["latin"],
-  weight: ["300", "400", "500"],
+  weight: "100 900",
+  display: "swap",
 });
 
 export const metadata: Metadata = {
