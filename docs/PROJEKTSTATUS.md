@@ -1,6 +1,6 @@
 # Projektstatus Hygge Homes Analyse
 
-Stand 04.11.2026, nach PR 1 bis 11. Detailplanung und Phasen in `ROADMAP.md`, Owner-Schritte in `README.md` und `docs/supabase/email-setup.md`.
+Stand 04.11.2026, nach PR 1 bis 13. Detailplanung und Phasen in `ROADMAP.md`, Owner-Schritte in `README.md` und `docs/supabase/email-setup.md`.
 
 ## 1. Ziel
 Aus dem internen Rechentool für Ferienunterkünfte wird ein SaaS mit Nutzerprofilen und Abo-Modell. Umbau in gestapelten Pull Requests, jeder Schritt mit Lint, Tests und Build.
@@ -31,6 +31,8 @@ Aus dem internen Rechentool für Ferienunterkünfte wird ein SaaS mit Nutzerprof
 | 9 | Gebrandeter Report mit Sektionsauswahl und Druckansicht |
 | 10 | Go-Live-Vorbereitung: Security-Header, Schlüsselformate, Onboarding, Hinweise, Rechtsseiten, Rate-Limit |
 | 11 | Selbstregistrierung mit Bestätigungsmail, Honeypot, Rate-Limit je IP, Startplan per Konstante, E-Mail-Vorlagen, Kennzeichen „E-Mail bestätigt“ |
+| 12 | Bestätigungsmail erneut anfordern, Hinweis bei unbestätigtem Konto, Spalte „Registriert am“ |
+| 13 | Vercel-Build repariert: Schriften selbst gehostet über `next/font/local` statt Google-Download zur Build-Zeit |
 
 ## 4. Architektur
 - `proxy.ts`: Sitzung aus Cookies lesen und erneuern, ohne Datenbank; öffentliche Pfade: `/login`, `/auth/*`, `/registrieren`, `/no-access`, Rechtsseiten.
@@ -47,7 +49,8 @@ Aus dem internen Rechentool für Ferienunterkünfte wird ein SaaS mit Nutzerprof
 | `POST /api/logout` | Sitzung beenden | Sitzung |
 | `GET/PUT /api/profile` | Anzeigename und Einstellungen | Nutzer mit Zugang |
 | `POST /api/geocode` | Adresse zu Koordinaten (Nominatim), 30 je Nutzer und Stunde | Nutzer mit Zugang |
-| `POST /api/register` | Selbstregistrierung: Validierung, Honeypot, 10 Versuche je IP und Stunde, Dublettenprüfung, signUp ohne Sitzung, Startplan setzen | öffentlich |
+| `POST /api/register` | Selbstregistrierung: Validierung, Honeypot, 10 Versuche je IP und Stunde, Dublettenprüfung (409, bei unbestätigtem Konto `unconfirmed: true`), signUp ohne Sitzung, Startplan setzen | öffentlich |
+| `POST /api/register/resend` | Bestätigungsmail erneut senden (`auth.resend`, nur bei unbestätigtem Konto, Antwort immer neutral), 3 je E-Mail und 10 je IP pro Stunde | öffentlich |
 | `GET/POST/PATCH/DELETE /api/admin/users` | Nutzerverwaltung inkl. „E-Mail bestätigt“ | Admin |
 | `GET /api/cron/keepalive` | Keep-alive für Supabase Free | `CRON_SECRET` |
 | `GET /auth/callback` | Code oder Token-Hash gegen Sitzung tauschen (`type` email/signup, invite, recovery), `next` beachten | öffentlich |
@@ -63,7 +66,7 @@ Aus dem internen Rechentool für Ferienunterkünfte wird ein SaaS mit Nutzerprof
 | Umwegfaktor | `lib/config/assumptions.ts` | `DETOUR_FACTOR` 1,3 |
 | Startplan Registrierung | `lib/config/registration.ts` | `REGISTRATION = { defaultPlan: "pro", defaultValidDays: 180 }`; Phase 3 setzt `defaultPlan` auf `none` |
 | Passwortregel | `lib/registration.ts` | mindestens 8 Zeichen |
-| Rate-Limits | `app/api/geocode`, `app/api/register` | 30 je Nutzer und Stunde; 10 je IP und Stunde (In-Memory je Serverinstanz) |
+| Rate-Limits | `app/api/geocode`, `app/api/register`, `app/api/register/resend` | 30 je Nutzer und Stunde; 10 je IP und Stunde; 3 je E-Mail und 10 je IP pro Stunde (In-Memory je Serverinstanz) |
 | Logo | `lib/profile/settings.ts` | PNG, JPEG, SVG als Data-URL, maximal 300 KB |
 
 ## 8. Phase 3 (Abo und Payment), geplanter Ablauf

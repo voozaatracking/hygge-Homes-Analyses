@@ -4,6 +4,7 @@ import { useState, type FormEvent } from "react";
 import Link from "next/link";
 import { Button, Card, Notice } from "@/components/ui";
 import { MIN_PASSWORD_LENGTH } from "@/lib/registration";
+import { ResendConfirmation } from "@/components/resend-confirmation";
 
 /**
  * Formular der Selbstregistrierung. Legt das Konto über /api/register an;
@@ -18,6 +19,9 @@ export function RegisterForm() {
   const [website, setWebsite] = useState("");
   const [accepted, setAccepted] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  /** 409 mit unconfirmed: Konto existiert, Bestätigung fehlt noch. */
+  const [unconfirmed, setUnconfirmed] = useState(false);
+  const [existing, setExisting] = useState(false);
   const [pending, setPending] = useState(false);
   const [done, setDone] = useState(false);
 
@@ -25,6 +29,8 @@ export function RegisterForm() {
     event.preventDefault();
     if (pending) return;
     setError(null);
+    setUnconfirmed(false);
+    setExisting(false);
     if (password.length < MIN_PASSWORD_LENGTH) {
       setError(`Das Passwort braucht mindestens ${MIN_PASSWORD_LENGTH} Zeichen.`);
       return;
@@ -47,7 +53,18 @@ export function RegisterForm() {
       const body = (await response.json().catch(() => null)) as {
         ok?: boolean;
         error?: string;
+        unconfirmed?: boolean;
       } | null;
+      if (response.status === 409 && body?.unconfirmed) {
+        setUnconfirmed(true);
+        setError("Zu dieser Adresse existiert ein Konto, das noch nicht bestätigt ist.");
+        return;
+      }
+      if (response.status === 409) {
+        setExisting(true);
+        setError(body?.error ?? "Für diese E-Mail-Adresse existiert bereits ein Konto.");
+        return;
+      }
       if (!response.ok || !body?.ok) {
         setError(body?.error ?? "Die Registrierung ist fehlgeschlagen. Bitte erneut versuchen.");
         return;
@@ -181,7 +198,20 @@ export function RegisterForm() {
                 </span>
               </label>
 
-              {error ? <Notice kind="warning">{error}</Notice> : null}
+              {error ? (
+                <Notice kind="warning">
+                  {error}
+                  {existing ? (
+                    <>
+                      {" "}
+                      <Link href="/login" className={linkClass}>
+                        Zur Anmeldung
+                      </Link>
+                    </>
+                  ) : null}
+                </Notice>
+              ) : null}
+              {unconfirmed ? <ResendConfirmation email={email} /> : null}
 
               <Button
                 type="submit"

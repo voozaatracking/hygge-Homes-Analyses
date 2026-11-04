@@ -3,7 +3,12 @@
 import { useState, type FormEvent } from "react";
 import Link from "next/link";
 import { Button, Card, Notice } from "@/components/ui";
-import { describeAuthError, getBrowserSupabase } from "@/lib/supabase/browser";
+import {
+  describeAuthError,
+  getBrowserSupabase,
+  isEmailNotConfirmed,
+} from "@/lib/supabase/browser";
+import { ResendConfirmation } from "@/components/resend-confirmation";
 
 /**
  * Anmeldung mit E-Mail und Passwort über Supabase Auth.
@@ -14,6 +19,7 @@ export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [unconfirmed, setUnconfirmed] = useState(false);
   const [pending, setPending] = useState(false);
 
   async function submit(event: FormEvent) {
@@ -21,6 +27,7 @@ export default function LoginPage() {
     if (pending) return;
     setPending(true);
     setError(null);
+    setUnconfirmed(false);
 
     const supabase = getBrowserSupabase();
     if (!supabase) {
@@ -37,6 +44,7 @@ export default function LoginPage() {
     });
     if (authError) {
       setError(describeAuthError(authError.message));
+      setUnconfirmed(isEmailNotConfirmed(authError.message));
       setPending(false);
       return;
     }
@@ -104,6 +112,7 @@ export default function LoginPage() {
           </div>
 
           {error ? <Notice kind="warning">{error}</Notice> : null}
+          {unconfirmed ? <ResendConfirmation email={email} /> : null}
 
           <Button
             type="submit"

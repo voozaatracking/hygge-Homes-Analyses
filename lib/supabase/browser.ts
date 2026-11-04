@@ -22,6 +22,11 @@ export function getBrowserSupabase(): SupabaseClient | null {
   return client;
 }
 
+/** true, wenn Supabase die Anmeldung wegen unbestätigter E-Mail ablehnt. */
+export function isEmailNotConfirmed(message: string | undefined): boolean {
+  return (message ?? "").toLowerCase().includes("email not confirmed");
+}
+
 /** Deutsche Fehlermeldungen für die häufigsten Auth-Fehler. */
 export function describeAuthError(message: string | undefined): string {
   const text = (message ?? "").toLowerCase();

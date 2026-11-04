@@ -22,7 +22,7 @@ Ein Profil pro Nutzer mit mehr Einstellungen und individualisierbarem UI.
 
 Entscheidung des Owners:
 - Auth-Strategie: Supabase Auth, E-Mail und Passwort. Der eigene Login (`lib/session.ts`, `lib/passwords.ts`, Master-Notzugang über `SITE_PASSWORD`) wird vollständig abgelöst.
-- Zugang: offene Selbstregistrierung mit Bestätigungsmail (`/registrieren`, `/api/register`), Startplan per Konstante `lib/config/registration.ts` (derzeit Pro, 180 Tage); Einladung durch den Admin bleibt zusätzlich möglich. Phase 3 setzt den Startplan auf none und führt zur Abo-Seite.
+- Zugang: offene Selbstregistrierung mit Bestätigungsmail (`/registrieren`, `/api/register`, erneuter Versand über `/api/register/resend`), Startplan per Konstante `lib/config/registration.ts` (derzeit Pro, 180 Tage); Einladung durch den Admin bleibt zusätzlich möglich. Phase 3 setzt den Startplan auf none und führt zur Abo-Seite.
 - E-Mail-Versand: Custom SMTP über Strato (`smtp.strato.de`, Port 465), Vorlagen in `docs/supabase/email-templates/`, Owner-Schritte in `docs/supabase/email-setup.md`.
 - Keine Teams. Daten hängen am Nutzer.
 - Tabelle `profiles` mit `role` (admin, member), `plan` (none, internal, pro) und `plan_valid_until`. Kein Free-Tier: „pro“ ist der bezahlte Plan, „internal“ für Konten ohne Payment. Zugriffsregel: aktiv und (Admin oder internal oder pro mit leerem oder zukünftigem Datum). Serverseitige Prüfung bei jedem Datenzugriff in `lib/access.ts`; bis Payment existiert, setzt der Admin den Plan manuell, später schreibt der Payment-Webhook dieselben Felder.
@@ -59,6 +59,7 @@ Stand PR 10 (Go-Live-Vorbereitung). Erledigt bedeutet im Code umgesetzt; Owner-S
 - [x] Rechtsseiten als Gerüst (`/impressum`, `/datenschutz`, `/agb`) mit Platzhaltern, aus dem Footer erreichbar.
 - [x] Rate-Limit für `/api/geocode`: 30 Anfragen pro Nutzer und Stunde, im Arbeitsspeicher je Serverinstanz (`lib/rate-limit.ts`).
 - [x] Selbstregistrierung mit Bestätigungsmail, Honeypot, Rate-Limit je IP, Startplan per Konstante, Kennzeichen „E-Mail bestätigt“ in der Verwaltung (PR 11).
+- [x] Bestätigungsmail erneut anfordern (`/api/register/resend`, neutrale Antwort, Rate-Limit je E-Mail und IP), Hinweis bei unbestätigtem Konto auf Registrierung und Anmeldung, Spalte „Registriert am“ in der Verwaltung (PR 12).
 - [x] Vercel-Build: Schriften Oswald und Jost selbst gehostet (`app/fonts/`, `next/font/local`) statt `next/font/google`; behebt den Turbopack-Fehler „next/font/google queries have exactly one entry“ im Production-Build (PR 13).
 - [ ] Owner: E-Mail-Versand nach `docs/supabase/email-setup.md` (Custom SMTP Strato, Vorlagen, „Allow new users to sign up“, Rate-Limit für E-Mails, Test-Registrierung).
 - [ ] Owner: Rechtstexte für Impressum, Datenschutzerklärung und AGB einsetzen (geprüfte Inhalte, keine Platzhalter).

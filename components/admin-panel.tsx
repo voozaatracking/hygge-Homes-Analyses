@@ -301,6 +301,7 @@ export function AdminPanel({ selfId }: { selfId: string }) {
                   <th className={headerCell}>Plan</th>
                   <th className={headerCell}>Gültig bis</th>
                   <th className={headerCell}>Status</th>
+                  <th className={headerCell}>Registriert am</th>
                   <th className={headerCell}>E-Mail bestätigt</th>
                   <th className={headerCell}>Letzte Anmeldung</th>
                   <th className={headerCell}>Aktionen</th>
@@ -350,6 +351,9 @@ export function AdminPanel({ selfId }: { selfId: string }) {
                         <span className={user.active ? "text-sage" : "text-brick"}>
                           {user.active ? "aktiv" : "deaktiviert"}
                         </span>
+                      </td>
+                      <td className={`${bodyCell} text-muted whitespace-nowrap`}>
+                        {user.createdAt ? fmtDateTime(user.createdAt).slice(0, 10) : "–"}
                       </td>
                       <td className={bodyCell}>
                         <span className={user.emailConfirmedAt ? "text-sage" : "text-brick"}>
