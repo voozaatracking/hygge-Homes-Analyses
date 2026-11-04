@@ -66,7 +66,13 @@ vi.mock("@/lib/supabase/admin", () => ({
         },
       }),
       select: () => ({
-        order: async () => ({ data: [], error: null }),
+        order: async () => ({
+          data: [
+            { id: "u-2", email: "b@example.com", display_name: null, role: "member", plan: "pro", plan_valid_until: null, active: true, created_at: null },
+            { id: "u-3", email: "c@example.com", display_name: null, role: "member", plan: "pro", plan_valid_until: null, active: true, created_at: null },
+          ],
+          error: null,
+        }),
         eq: () => ({
           maybeSingle: async () =>
             table === "profiles"
@@ -88,7 +94,15 @@ vi.mock("@/lib/supabase/admin", () => ({
           calls.deletedUsers.push(id);
           return { data: {}, error: null };
         },
-        listUsers: async () => ({ data: { users: [] }, error: null }),
+        listUsers: async () => ({
+          data: {
+            users: [
+              { id: "u-2", last_sign_in_at: "2026-11-01T08:00:00Z", email_confirmed_at: "2026-10-30T09:00:00Z" },
+              { id: "u-3", last_sign_in_at: null, email_confirmed_at: null },
+            ],
+          },
+          error: null,
+        }),
       },
     },
   }),
@@ -244,6 +258,18 @@ describe("/api/admin/users", () => {
       const response = await POST(request("POST", { email: "keine-adresse" }));
       expect(response.status).toBe(400);
       expect(calls.invites).toHaveLength(0);
+    });
+
+    it("liefert das Kennzeichen E-Mail bestätigt aus auth.users", async () => {
+      const response = await GET();
+      expect(response.status).toBe(200);
+      const body = (await response.json()) as {
+        users: { id: string; emailConfirmedAt: string | null; lastSignInAt: string | null }[];
+      };
+      expect(body.users.map((u) => [u.id, u.emailConfirmedAt, u.lastSignInAt])).toEqual([
+        ["u-2", "2026-10-30T09:00:00Z", "2026-11-01T08:00:00Z"],
+        ["u-3", null, null],
+      ]);
     });
 
     it("löscht andere Nutzer samt Datenstand", async () => {

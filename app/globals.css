@@ -208,3 +208,14 @@ body {
     break-inside: avoid;
   }
 }
+
+/* Honeypot-Feld der Registrierung: für Menschen unsichtbar, nicht display:none,
+   damit Bots es weiterhin ausfüllen. */
+.honeypot {
+  position: absolute;
+  left: -10000px;
+  top: auto;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+}

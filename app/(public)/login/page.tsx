@@ -62,8 +62,8 @@ export default function LoginPage() {
           Anmeldung
         </h1>
         <p className="text-sm text-muted mb-5">
-          Zugang nur auf Einladung. Mit der E-Mail-Adresse und dem Passwort
-          anmelden, das nach der Einladung gesetzt wurde.
+          Mit E-Mail-Adresse und Passwort anmelden. Neue Konten brauchen
+          zuerst die Bestätigung der E-Mail-Adresse.
         </p>
 
         {configError ? (
@@ -115,12 +115,18 @@ export default function LoginPage() {
           </Button>
         </form>
 
-        <p className="mt-4 text-sm">
+        <p className="mt-4 text-sm flex flex-wrap gap-x-4 gap-y-1">
           <Link
             href="/auth/forgot"
             className="underline underline-offset-2 text-taupe hover:text-ink"
           >
             Passwort vergessen
+          </Link>
+          <Link
+            href="/registrieren"
+            className="underline underline-offset-2 text-taupe hover:text-ink"
+          >
+            Noch kein Konto? Registrieren
           </Link>
         </p>
       </Card>

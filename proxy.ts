@@ -23,6 +23,8 @@ const PUBLIC_PATHS = [
   "/impressum",
   "/datenschutz",
   "/agb",
+  "/registrieren",
+  "/api/register",
 ];
 
 function isPublic(pathname: string): boolean {
