@@ -5,6 +5,7 @@ import { getServiceClient, PROFILES_TABLE } from "@/lib/supabase/admin";
 import { createRateLimiter } from "@/lib/rate-limit";
 import { REGISTRATION } from "@/lib/config/registration";
 import { MIN_PASSWORD_LENGTH, planValidUntil } from "@/lib/registration";
+import { findAccountByEmail } from "@/lib/registration-status";
 
 /**
  * Offene Selbstregistrierung mit E-Mail-Bestätigung.
@@ -13,7 +14,8 @@ import { MIN_PASSWORD_LENGTH, planValidUntil } from "@/lib/registration";
  * - Zod-Validierung, Passwortregel wie /auth/set-password.
  * - Honeypot: "website" muss leer sein; sonst 201 ohne Aktion.
  * - Rate-Limit 10 Versuche je IP und Stunde (In-Memory je Serverinstanz).
- * - Doppelte E-Mail über profiles.email → 409.
+ * - Doppelte E-Mail über profiles.email → 409, bei unbestätigtem Konto mit
+ *   unconfirmed: true (Resend über /api/register/resend).
  * - signUp über den Server-Client mit Anon-Key ohne Cookies (keine Sitzung);
  *   Supabase verschickt die Bestätigungsmail. Danach Startplan und
  *   Anzeigename per Service-Role in profiles setzen (der Trigger aus
@@ -83,14 +85,16 @@ export async function POST(request: Request) {
     );
   }
 
-  const existing = await service
-    .from(PROFILES_TABLE)
-    .select("id")
-    .eq("email", email)
-    .maybeSingle();
-  if (existing.data) {
+  // Dublette: 409; bei noch unbestätigtem Konto zusätzlich unconfirmed: true,
+  // damit die Seite "Bestätigungsmail erneut senden" anbieten kann.
+  const existing = await findAccountByEmail(service, email);
+  if (existing) {
     return NextResponse.json(
-      { ok: false, error: "Für diese E-Mail-Adresse existiert bereits ein Konto." },
+      {
+        ok: false,
+        error: "Für diese E-Mail-Adresse existiert bereits ein Konto.",
+        unconfirmed: !existing.confirmed,
+      },
       { status: 409 }
     );
   }

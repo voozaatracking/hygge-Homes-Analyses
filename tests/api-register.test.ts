@@ -5,6 +5,8 @@ import { REGISTRATION } from "@/lib/config/registration";
 
 const state = {
   existingEmails: new Set<string>(),
+  /** E-Mails, deren Konto noch unbestätigt ist. */
+  unconfirmedEmails: new Set<string>(),
   signUps: [] as { email: string; password: string; options: unknown }[],
   signUpError: null as { message: string } | null,
   profileUpdates: [] as { id: string; patch: Record<string, unknown> }[],
@@ -29,11 +31,26 @@ vi.mock("@/lib/supabase/admin", () => ({
   ANALYSIS_TABLE: "analysis_state",
   PROFILES_TABLE: "profiles",
   getServiceClient: () => ({
+    auth: {
+      admin: {
+        getUserById: async (id: string) => ({
+          data: {
+            user: {
+              id,
+              email_confirmed_at: state.unconfirmedEmails.has(id.replace(/^id:/, ""))
+                ? null
+                : "2026-11-01T00:00:00Z",
+            },
+          },
+          error: null,
+        }),
+      },
+    },
     from: () => ({
       select: () => ({
         eq: (_col: string, email: string) => ({
           maybeSingle: async () => ({
-            data: state.existingEmails.has(email) ? { id: "x" } : null,
+            data: state.existingEmails.has(email) ? { id: `id:${email}` } : null,
             error: null,
           }),
         }),
@@ -76,6 +93,7 @@ const valid = {
 describe("/api/register", () => {
   beforeEach(() => {
     state.existingEmails.clear();
+    state.unconfirmedEmails.clear();
     state.signUps = [];
     state.signUpError = null;
     state.profileUpdates = [];
@@ -101,8 +119,19 @@ describe("/api/register", () => {
     state.existingEmails.add("neu@example.com");
     const response = await POST(request(valid, "198.51.100.3"));
     expect(response.status).toBe(409);
-    const body = (await response.json()) as { error: string };
+    const body = (await response.json()) as { error: string; unconfirmed: boolean };
     expect(body.error).toBe("Für diese E-Mail-Adresse existiert bereits ein Konto.");
+    expect(body.unconfirmed).toBe(false);
+    expect(state.signUps).toHaveLength(0);
+  });
+
+  it("kennzeichnet ein noch unbestätigtes Konto mit unconfirmed: true", async () => {
+    state.existingEmails.add("neu@example.com");
+    state.unconfirmedEmails.add("neu@example.com");
+    const response = await POST(request(valid, "198.51.100.33"));
+    expect(response.status).toBe(409);
+    const body = (await response.json()) as { unconfirmed: boolean };
+    expect(body.unconfirmed).toBe(true);
     expect(state.signUps).toHaveLength(0);
   });
 
