@@ -59,6 +59,7 @@ Stand PR 10 (Go-Live-Vorbereitung). Erledigt bedeutet im Code umgesetzt; Owner-S
 - [x] Rechtsseiten als Gerüst (`/impressum`, `/datenschutz`, `/agb`) mit Platzhaltern, aus dem Footer erreichbar.
 - [x] Rate-Limit für `/api/geocode`: 30 Anfragen pro Nutzer und Stunde, im Arbeitsspeicher je Serverinstanz (`lib/rate-limit.ts`).
 - [x] Selbstregistrierung mit Bestätigungsmail, Honeypot, Rate-Limit je IP, Startplan per Konstante, Kennzeichen „E-Mail bestätigt“ in der Verwaltung (PR 11).
+- [x] Vercel-Build: Schriften Oswald und Jost selbst gehostet (`app/fonts/`, `next/font/local`) statt `next/font/google`; behebt den Turbopack-Fehler „next/font/google queries have exactly one entry“ im Production-Build (PR 13).
 - [ ] Owner: E-Mail-Versand nach `docs/supabase/email-setup.md` (Custom SMTP Strato, Vorlagen, „Allow new users to sign up“, Rate-Limit für E-Mails, Test-Registrierung).
 - [ ] Owner: Rechtstexte für Impressum, Datenschutzerklärung und AGB einsetzen (geprüfte Inhalte, keine Platzhalter).
 - [ ] Owner: Supabase-Auth-Schritte 1 bis 7 aus der README abschließen (Migrationen inkl. 0004, SMTP, Redirect URLs, Datenübernahme, `0003_drop_app_users`).
