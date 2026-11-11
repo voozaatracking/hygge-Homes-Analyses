@@ -103,6 +103,14 @@ describe("Sync-Reducer: Konfliktfall", () => {
     expect(state.status).toBe("saving");
   });
 
+  it("hält nach Ablauf der Sitzung an und speichert nicht automatisch weiter", () => {
+    const expired = reduceSync(synced(4), { type: "expired" });
+    expect(expired.status).toBe("expired");
+    expect(expired.message).toMatch(/Sitzung ist abgelaufen/);
+    expect(expired.version).toBe(4);
+    expect(reduceSync(expired, { type: "saving" })).toBe(expired);
+  });
+
   it("ignoriert resolve ohne Konflikt", () => {
     const state = synced(2);
     expect(reduceSync(state, { type: "resolve", mode: "overwrite" })).toBe(state);

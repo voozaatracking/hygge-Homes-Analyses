@@ -1,6 +1,14 @@
 import { NextResponse } from "next/server";
 import { getServerSupabase } from "@/lib/supabase/server";
 import { getServiceClient, PROFILES_TABLE } from "@/lib/supabase/admin";
+import { cookies } from "next/headers";
+import {
+  effectiveSessionStart,
+  isSessionExpired,
+  SESSION_START_COOKIE,
+  sessionStartSecret,
+  verifySessionStartToken,
+} from "@/lib/session-limit";
 
 /**
  * Einzige Zugriffsschicht der Anwendung.
@@ -70,16 +78,70 @@ export interface SessionUser {
   email: string | null;
 }
 
+export interface SessionState {
+  user: SessionUser | null;
+  /** true, wenn die Sitzung die Höchstdauer überschritten hat und beendet wurde. */
+  expired: boolean;
+}
+
+/** session_id aus dem JWT, lokal geprüft; null, wenn nicht verfügbar. */
+async function readSessionId(
+  supabase: NonNullable<Awaited<ReturnType<typeof getServerSupabase>>>
+): Promise<string | null> {
+  try {
+    if (typeof supabase.auth.getClaims !== "function") return null;
+    const { data } = await supabase.auth.getClaims();
+    const sid = data?.claims?.session_id;
+    return typeof sid === "string" ? sid : null;
+  } catch {
+    return null;
+  }
+}
+
 /**
- * Liefert den angemeldeten Auth-Nutzer oder null. Prüft die Sitzung gegen
- * den Auth-Server (getUser), nicht nur die Cookie-Signatur.
+ * Sitzung prüfen: gegen den Auth-Server (getUser) und gegen die Höchstdauer
+ * (Cookie mit Anmeldezeitpunkt und auth.users.last_sign_in_at, der frühere
+ * Zeitpunkt zählt). Abgelaufene Sitzungen werden serverseitig beendet.
  */
-export async function getSessionUser(): Promise<SessionUser | null> {
+export async function getSessionState(): Promise<SessionState> {
   const supabase = await getServerSupabase();
-  if (!supabase) return null;
+  if (!supabase) return { user: null, expired: false };
   const { data, error } = await supabase.auth.getUser();
-  if (error || !data.user) return null;
-  return { id: data.user.id, email: data.user.email ?? null };
+  if (error || !data.user) return { user: null, expired: false };
+
+  const secret = sessionStartSecret();
+  let cookieStart = null;
+  if (secret) {
+    try {
+      const store = await cookies();
+      cookieStart = await verifySessionStartToken(
+        store.get(SESSION_START_COOKIE)?.value,
+        secret
+      );
+    } catch {
+      cookieStart = null;
+    }
+  }
+  const startedAt = effectiveSessionStart({
+    cookie: cookieStart,
+    sid: cookieStart ? await readSessionId(supabase) : null,
+    lastSignInAt: data.user.last_sign_in_at,
+  });
+  if (isSessionExpired(startedAt)) {
+    try {
+      await supabase.auth.signOut();
+    } catch {
+      // In Server-Komponenten können keine Cookies gesetzt werden; proxy.ts
+      // beendet die Sitzung beim nächsten Seitenaufruf.
+    }
+    return { user: null, expired: true };
+  }
+  return { user: { id: data.user.id, email: data.user.email ?? null }, expired: false };
+}
+
+/** Liefert den angemeldeten Auth-Nutzer oder null (abgelaufen zählt als null). */
+export async function getSessionUser(): Promise<SessionUser | null> {
+  return (await getSessionState()).user;
 }
 
 /** Liest das Profil über den Service-Client und wertet die Zugriffsregel aus. */
@@ -116,11 +178,17 @@ export function toPublicAccess(access: Access) {
 export async function requireAccess(): Promise<
   { access: Access } | { response: NextResponse }
 > {
-  const user = await getSessionUser();
+  const { user, expired } = await getSessionState();
   if (!user) {
     return {
       response: NextResponse.json(
-        { ok: false, error: "Nicht angemeldet." },
+        expired
+          ? {
+              ok: false,
+              error: "Die Sitzung ist nach 12 Stunden abgelaufen. Bitte erneut anmelden.",
+              expired: true,
+            }
+          : { ok: false, error: "Nicht angemeldet." },
         { status: 401 }
       ),
     };

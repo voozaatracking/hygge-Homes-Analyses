@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import Link from "next/link";
 import { Button, Card, Notice } from "@/components/ui";
 import {
@@ -21,6 +21,17 @@ export default function LoginPage() {
   const [error, setError] = useState<string | null>(null);
   const [unconfirmed, setUnconfirmed] = useState(false);
   const [pending, setPending] = useState(false);
+  const [expiredNotice, setExpiredNotice] = useState(false);
+
+  useEffect(() => {
+    // Query erst im Browser lesen, damit Server- und Client-HTML übereinstimmen.
+    const timeout = window.setTimeout(() => {
+      setExpiredNotice(
+        new URLSearchParams(window.location.search).get("reason") === "expired"
+      );
+    }, 0);
+    return () => window.clearTimeout(timeout);
+  }, []);
 
   async function submit(event: FormEvent) {
     event.preventDefault();
@@ -79,6 +90,15 @@ export default function LoginPage() {
           Mit E-Mail-Adresse und Passwort anmelden. Neue Konten brauchen
           zuerst die Bestätigung der E-Mail-Adresse.
         </p>
+
+        {expiredNotice ? (
+          <div className="mb-4">
+            <Notice kind="info">
+              Du wurdest aus Sicherheitsgründen nach 12 Stunden automatisch
+              abgemeldet. Bitte melde dich erneut an.
+            </Notice>
+          </div>
+        ) : null}
 
         {configError ? (
           <div className="mb-4">

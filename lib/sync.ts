@@ -9,7 +9,9 @@ export type SyncStatus =
   | "synced"
   | "saving"
   | "error"
-  | "conflict";
+  | "conflict"
+  /** Sitzung abgelaufen (401): lokaler Stand bleibt im Browser, Anmeldung nötig. */
+  | "expired";
 
 export interface SyncConflict {
   /** Version der Serverzeile; null, wenn die Zeile inzwischen fehlt. */
@@ -34,6 +36,7 @@ export type SyncEvent =
   | { type: "saving" }
   | { type: "saved"; version: number; updatedAt: string }
   | { type: "error"; message: string }
+  | { type: "expired" }
   | {
       type: "conflict";
       version: number | null;
@@ -64,8 +67,8 @@ export function reduceSync(state: SyncState, event: SyncEvent): SyncState {
         conflict: null,
       };
     case "saving":
-      // Während eines Konflikts wird nicht automatisch gespeichert.
-      if (state.status === "conflict") return state;
+      // Während eines Konflikts oder nach Ablauf wird nicht automatisch gespeichert.
+      if (state.status === "conflict" || state.status === "expired") return state;
       return { ...state, status: "saving", message: null };
     case "saved":
       return {
@@ -77,6 +80,13 @@ export function reduceSync(state: SyncState, event: SyncEvent): SyncState {
       };
     case "error":
       return { ...state, status: "error", message: event.message };
+    case "expired":
+      return {
+        ...state,
+        status: "expired",
+        message:
+          "Die Sitzung ist abgelaufen. Ungespeicherte Änderungen bleiben in diesem Browser erhalten; nach der Anmeldung kannst du sie übernehmen.",
+      };
     case "conflict":
       return {
         ...state,

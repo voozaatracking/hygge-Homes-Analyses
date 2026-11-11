@@ -46,6 +46,17 @@ export function SyncStatus() {
     );
   }
 
+  if (sync.status === "expired") {
+    return (
+      <span role="alert" className="text-brick flex flex-wrap items-center gap-x-3 gap-y-1">
+        <span>{sync.message}</span>
+        <a href="/login?reason=expired" className="underline underline-offset-2 hover:text-ink">
+          Erneut anmelden
+        </a>
+      </span>
+    );
+  }
+
   let text: string;
   if (sync.status === "saving") {
     text = "Cloud: speichert …";

@@ -1,6 +1,15 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { readPublicKey } from "@/lib/supabase/keys";
+import {
+  createSessionStartToken,
+  effectiveSessionStart,
+  isSessionExpired,
+  SESSION_START_COOKIE,
+  sessionStartSecret,
+  verifySessionStartToken,
+} from "@/lib/session-limit";
+import { SESSION_MAX_MS } from "@/lib/config/session";
 
 /**
  * Zugangsschutz für alle Seiten (Next 16: proxy.ts statt middleware.ts).
@@ -68,7 +77,43 @@ export async function proxy(request: NextRequest) {
   // weiterer Code, sonst kann eine Auffrischung verloren gehen. getClaims
   // prüft das Token lokal (JWKS) und frischt es bei Ablauf auf.
   const { data } = await supabase.auth.getClaims();
-  const signedIn = Boolean(data?.claims);
+  let signedIn = Boolean(data?.claims);
+
+  // Höchstdauer der Sitzung: signiertes Cookie mit Anmeldezeitpunkt, gebunden
+  // an die session_id (Token-Refresh ändert sie nicht). Fehlt es, wird es
+  // jetzt gesetzt; lib/access.ts prüft zusätzlich last_sign_in_at.
+  const secret = sessionStartSecret();
+  if (signedIn && secret) {
+    const sid = String(data?.claims?.session_id ?? "");
+    const cookie = await verifySessionStartToken(
+      request.cookies.get(SESSION_START_COOKIE)?.value,
+      secret
+    );
+    const startedAt = effectiveSessionStart({ cookie, sid, lastSignInAt: null });
+    if (isSessionExpired(startedAt)) {
+      await supabase.auth.signOut();
+      signedIn = false;
+      const redirect = redirectToLogin(request, "expired");
+      for (const c of response.cookies.getAll()) {
+        redirect.cookies.set(c.name, c.value, c);
+      }
+      redirect.cookies.set(SESSION_START_COOKIE, "", { path: "/", maxAge: 0 });
+      return redirect;
+    }
+    if (!cookie || cookie.sid !== sid) {
+      response.cookies.set(
+        SESSION_START_COOKIE,
+        await createSessionStartToken({ sid, startedAt: Date.now() }, secret),
+        {
+          httpOnly: true,
+          secure: process.env.NODE_ENV === "production",
+          sameSite: "lax",
+          path: "/",
+          maxAge: Math.ceil(SESSION_MAX_MS / 1000),
+        }
+      );
+    }
+  }
 
   // Auth-Antworten dürfen nicht von CDN oder Proxy zwischengespeichert werden.
   response.headers.set("Cache-Control", "private, no-store");
@@ -84,12 +129,13 @@ export async function proxy(request: NextRequest) {
   return response;
 }
 
-function redirectToLogin(request: NextRequest) {
+function redirectToLogin(request: NextRequest, reason?: "expired") {
   const url = new URL("/login", request.url);
   const from = request.nextUrl.pathname + request.nextUrl.search;
   if (from && from !== "/") {
     url.searchParams.set("from", from);
   }
+  if (reason) url.searchParams.set("reason", reason);
   return NextResponse.redirect(url);
 }
 

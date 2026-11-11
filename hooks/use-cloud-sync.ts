@@ -6,6 +6,8 @@ import { buildAnalysisFile, parseAnalysisFile } from "@/lib/io/json-file";
 import { initialSyncState, reduceSync } from "@/lib/sync";
 
 export const CLOUD_SAVE_DELAY_MS = 1200;
+/** Marker im Browser: Die Sitzung lief ab, während ungespeicherte Änderungen vorlagen. */
+export const PENDING_KEY_PREFIX = "hygge-analyse-pending-v1";
 
 /** Vergleichsbasis für "hat sich etwas geändert": nur die Nutzdaten. */
 export function serializeData(
@@ -65,6 +67,34 @@ export function useCloudSync({
   const syncStatusRef = useRef(sync.status);
   const onLoadRef = useRef(onLoad);
   const onRestoreRef = useRef(onRestoreAutosave);
+  /** true, wenn vor der letzten Abmeldung ungespeicherte Änderungen vorlagen. */
+  const pendingRef = useRef(false);
+
+  /**
+   * Sitzung abgelaufen (401): aktuellen Stand sofort in den Zwischenspeicher
+   * schreiben, Marker setzen und zur Anmeldung leiten. Nichts geht verloren.
+   */
+  const handleExpired = useCallback(() => {
+    const key = autosaveKeyRef.current;
+    const { objects, locations } = dataRef.current;
+    try {
+      if (key && (objects.length > 0 || locations.length > 0)) {
+        window.localStorage.setItem(
+          key,
+          JSON.stringify(buildAnalysisFile(objects, locations, "object"))
+        );
+        window.localStorage.setItem(`${PENDING_KEY_PREFIX}:${key}`, "1");
+      }
+    } catch {
+      // Zwischenspeicher nicht verfügbar: Hinweis bleibt, Weiterleitung folgt.
+    }
+    dispatchSync({ type: "expired" });
+    const from = window.location.pathname + window.location.search;
+    const url = new URL("/login", window.location.origin);
+    url.searchParams.set("reason", "expired");
+    if (from && from !== "/") url.searchParams.set("from", from);
+    window.location.assign(url.toString());
+  }, [autosaveKeyRef]);
   useEffect(() => {
     dataRef.current = { objects, locations };
     syncStatusRef.current = sync.status;
@@ -101,6 +131,9 @@ export function useCloudSync({
       autosaveKeyRef.current = `${autosaveKey}:${uid}`;
 
       try {
+        const pendingKey = `${PENDING_KEY_PREFIX}:${autosaveKeyRef.current}`;
+        pendingRef.current = window.localStorage.getItem(pendingKey) === "1";
+        window.localStorage.removeItem(pendingKey);
         const stored = window.localStorage.getItem(autosaveKeyRef.current);
         if (stored) {
           const parsed = parseAnalysisFile(stored);
@@ -133,7 +166,12 @@ export function useCloudSync({
           const body = (await response.json().catch(() => null)) as {
             error?: string;
           } | null;
-          if (response.status === 401 || response.status === 403) {
+          if (response.status === 401) {
+            // Sitzung nach dem Laden der Seite abgelaufen.
+            handleExpired();
+            return;
+          }
+          if (response.status === 403) {
             dispatchSync({ type: "disabled" });
           } else {
             dispatchSync({
@@ -159,12 +197,27 @@ export function useCloudSync({
         }
         cloudEnabledRef.current = true;
         versionRef.current = body.version ?? null;
+        const local = dataRef.current;
+        const hasLocal = local.objects.length > 0 || local.locations.length > 0;
         if (body.payload != null) {
           const parsed = parseAnalysisFile(JSON.stringify(body.payload));
           if (parsed.ok && parsed.data) {
             const hasData =
               parsed.data.objects.length > 0 ||
               parsed.data.locations.length > 0;
+            if (hasData && pendingRef.current && hasLocal) {
+              // Vor der Abmeldung gab es ungespeicherte Änderungen: Der Nutzer
+              // entscheidet zwischen Serverstand und lokalem Stand.
+              pendingRef.current = false;
+              cloudReadyRef.current = true;
+              dispatchSync({
+                type: "conflict",
+                version: body.version ?? null,
+                payload: body.payload,
+                updatedAt: body.updatedAt ?? null,
+              });
+              return;
+            }
             if (hasData) {
               lastSyncedRef.current = serializeData(
                 parsed.data.objects,
@@ -192,7 +245,7 @@ export function useCloudSync({
       }
     };
     void start();
-  }, [autosaveKey, autosaveKeyRef]);
+  }, [autosaveKey, autosaveKeyRef, handleExpired]);
 
   /**
    * Speichert den aktuellen Datenstand mit der erwarteten Version.
@@ -227,6 +280,10 @@ export function useCloudSync({
         });
         return;
       }
+      if (response.status === 401) {
+        handleExpired();
+        return;
+      }
       if (response.status === 409 && body?.conflict) {
         dispatchSync({
           type: "conflict",
@@ -247,12 +304,12 @@ export function useCloudSync({
         message: "Cloud-Speichern fehlgeschlagen, Daten bleiben lokal.",
       });
     }
-  }, []);
+  }, [handleExpired]);
 
   // Änderungen verzögert in die Cloud schreiben. Im Konfliktzustand pausiert.
   useEffect(() => {
     if (!cloudEnabledRef.current || !cloudReadyRef.current) return;
-    if (syncStatusRef.current === "conflict") return;
+    if (syncStatusRef.current === "conflict" || syncStatusRef.current === "expired") return;
     const current = serializeData(objects, locations);
     if (current === lastSyncedRef.current) return;
     if (objects.length === 0 && locations.length === 0 && !dirty) return;
