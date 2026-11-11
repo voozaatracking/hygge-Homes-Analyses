@@ -2,7 +2,6 @@ import type {
   GeoAddress,
   ListingInput,
   LocationInput,
-  PricingToolInput,
   PropertyInput,
   TravelInput,
 } from "@/lib/types/analysis";
@@ -10,7 +9,6 @@ import {
   CLEANING_DEFAULTS,
   ELECTRICITY_DEFAULTS,
   LISTING_DEFAULTS,
-  PRICING_DEFAULTS,
   REVENUE_DEFAULTS,
   WEEKS_PER_YEAR,
 } from "@/lib/config/assumptions";
@@ -77,27 +75,9 @@ export function emptyProperty(
     electricityAssumptions: electricity,
     cleaningAssumptions: cleaning,
     revenueAssumptions: revenue,
-    pricingTool: emptyPricingTool(defaults),
     startInvestment: null,
     marketRentPerSqm: null,
     highlighted: false,
-  };
-}
-
-/** Pricing-Tool-Werte für ein neues Objekt: aus dem Profil oder aus den Konstanten. */
-export function emptyPricingTool(defaults?: ProfileDefaults): PricingToolInput {
-  const d = defaults?.pricing;
-  return {
-    referenceDays: null,
-    markupPct: d?.markupPct ?? PRICING_DEFAULTS.markupPct,
-    ownMinPrice: null,
-    basePrice: d?.basePrice ?? PRICING_DEFAULTS.basePrice,
-    minStayWeekday: d?.minStayWeekday ?? PRICING_DEFAULTS.minStayWeekday,
-    minStayWeekend: d?.minStayWeekend ?? PRICING_DEFAULTS.minStayWeekend,
-    gapMaxNights: d?.gapMaxNights ?? PRICING_DEFAULTS.gapMaxNights,
-    gapMinStay: d?.gapMinStay ?? PRICING_DEFAULTS.gapMinStay,
-    lastMinuteDays: d?.lastMinuteDays ?? PRICING_DEFAULTS.lastMinuteDays,
-    lastMinuteMinStay: d?.lastMinuteMinStay ?? PRICING_DEFAULTS.lastMinuteMinStay,
   };
 }
 

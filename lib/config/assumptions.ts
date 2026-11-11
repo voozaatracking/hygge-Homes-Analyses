@@ -59,24 +59,16 @@ export const REVENUE_DEFAULTS = {
 };
 
 /**
- * Standardwerte für das Pricing-Tool (Reiter "Pricing-Tool" am Objekt und
- * Standardannahmen im Profil). Fachliche Vorgaben folgen noch; deshalb an
- * einer Stelle änderbar. Mindestaufenthalte und Basispreis haben bewusst
- * keine Vorgabe (null).
+ * Empfehlungen für ein externes Pricing-Tool (Reiter "Pricing-Tool").
+ * Mindestpreis = Break-even-Nachtpreis bei den geplanten Nächten × (1 + Aufschlag),
+ * Basispreis = Mindestpreis + Zuschlag je Nacht; beide auf volle Euro aufgerundet.
+ * Die übrigen Werte sind feste Empfehlungen für Mindestaufenthalt, Lücken und Last-Minute.
  */
-export const PRICING_DEFAULTS = {
-  /** Aufschlag auf den Break-even-Nachtpreis in Prozent. */
-  markupPct: 10,
-  /** Buchungslücken: "Lücken bis ... Nächte" und Mindestaufenthalt in Lücken. */
-  gapMaxNights: 7,
-  gapMinStay: 1,
-  /** Last-Minute: "ab ... Tagen vor Anreise" und Mindestaufenthalt Last-Minute. */
-  lastMinuteDays: 4,
-  lastMinuteMinStay: 1,
-  minStayWeekday: null as number | null,
-  minStayWeekend: null as number | null,
-  basePrice: null as number | null,
-};
+export const PRICING_MARKUP_PCT = 10;
+export const PRICING_BASE_SURCHARGE_EUR = 40;
+export const PRICING_MIN_STAY_NIGHTS = 3;
+export const PRICING_GAP_MAX_NIGHTS = 5;
+export const PRICING_LAST_MINUTE_MAX_NIGHTS = 4;
 
 /**
  * Szenariofaktoren der Wirtschaftlichkeitsrechnung.

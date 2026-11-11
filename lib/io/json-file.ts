@@ -10,7 +10,6 @@ import {
   CALC_VERSION,
   ELECTRICITY_DEFAULTS,
   LISTING_DEFAULTS,
-  PRICING_DEFAULTS,
   REVENUE_DEFAULTS,
   SCHEMA_VERSION,
 } from "@/lib/config/assumptions";
@@ -114,21 +113,6 @@ const propertySchema = z.object({
     }),
   /** Ab Einführung der Amortisationsrechnung. Ältere Dateien: keine Startinvestition. */
   startInvestment: nullableNumber.default(null),
-  /** Ab Einführung des Pricing-Tools. Ältere Dateien erhalten die Standardwerte. */
-  pricingTool: z
-    .object({
-      referenceDays: nullableNumber.default(null),
-      markupPct: nullableNumber.default(PRICING_DEFAULTS.markupPct),
-      ownMinPrice: nullableNumber.default(null),
-      basePrice: nullableNumber.default(PRICING_DEFAULTS.basePrice),
-      minStayWeekday: nullableNumber.default(PRICING_DEFAULTS.minStayWeekday),
-      minStayWeekend: nullableNumber.default(PRICING_DEFAULTS.minStayWeekend),
-      gapMaxNights: nullableNumber.default(PRICING_DEFAULTS.gapMaxNights),
-      gapMinStay: nullableNumber.default(PRICING_DEFAULTS.gapMinStay),
-      lastMinuteDays: nullableNumber.default(PRICING_DEFAULTS.lastMinuteDays),
-      lastMinuteMinStay: nullableNumber.default(PRICING_DEFAULTS.lastMinuteMinStay),
-    })
-    .prefault({}),
   cleaningAssumptions: z.object({
     minutesPerSqm: nullableNumber,
     hourlyWage: nullableNumber,

@@ -105,24 +105,6 @@ export function validateProperty(input: PropertyInput): FieldErrors {
   if (isSet(input.travel.tripsPerMonth) && input.travel.tripsPerMonth < 0) {
     errors.travelTripsPerMonth = "Die Fahrten pro Monat dürfen nicht negativ sein.";
   }
-  const pricingFields: [keyof PropertyInput["pricingTool"], string][] = [
-    ["referenceDays", "Die Bezugsauslastung"],
-    ["markupPct", "Der Aufschlag"],
-    ["ownMinPrice", "Der eigene Mindestpreis"],
-    ["basePrice", "Der Basispreis"],
-    ["minStayWeekday", "Der Mindestaufenthalt unter der Woche"],
-    ["minStayWeekend", "Der Mindestaufenthalt am Wochenende"],
-    ["gapMaxNights", "Die Lückenlänge"],
-    ["gapMinStay", "Der Mindestaufenthalt in Lücken"],
-    ["lastMinuteDays", "Der Last-Minute-Zeitraum"],
-    ["lastMinuteMinStay", "Der Mindestaufenthalt Last-Minute"],
-  ];
-  for (const [key, label] of pricingFields) {
-    const v = input.pricingTool[key];
-    if (isSet(v) && v < 0) {
-      errors[`pricingTool-${key}`] = `${label} darf nicht negativ sein.`;
-    }
-  }
   if (isSet(input.startInvestment) && input.startInvestment < 0) {
     errors.startInvestment =
       "Die Startinvestition darf nicht negativ sein.";

@@ -54,7 +54,8 @@ describe("PropertyForm rendert alle Sektionen", () => {
       "Weitere Kennzahlen",
       "Objektbewertung",
       "Pricing-Tool",
-      "Annahmen für das Pricing-Tool",
+      "Empfehlungen für dein Pricing-Tool",
+      "Empfohlene Einstellungen",
       "Mindestpreis für das Pricing-Tool",
     ]) {
       expect(html).toContain(text);

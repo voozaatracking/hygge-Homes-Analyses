@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { breakEvenNightPrice, derivePricing } from "@/lib/calculations/pricing";
+import { breakEvenNightPrice, ceilEuro, derivePricing } from "@/lib/calculations/pricing";
 import { deriveProperty, type DeriveContext } from "@/lib/calculations/property-calculations";
-import { PRICING_DEFAULTS } from "@/lib/config/assumptions";
+import {
+  PRICING_BASE_SURCHARGE_EUR,
+  PRICING_MARKUP_PCT,
+} from "@/lib/config/assumptions";
 import { emptyProperty } from "@/lib/utils";
 
 const HQ: DeriveContext = { hq: { lat: 53.2464, lng: 10.4115 }, hqAddress: "Lüneburg" };
@@ -75,81 +78,85 @@ describe("Break-even-Nachtpreis (Gegenprobe Gewinn = 0)", () => {
   });
 });
 
-describe("Pricing-Tool-Felder beeinflussen die Berechnung nicht", () => {
-  it("liefert identische Kennzahlen mit und ohne Pricing-Tool-Werte", () => {
-    const p = base();
-    const before = deriveProperty(p, HQ);
-    p.pricingTool = {
-      referenceDays: 25,
-      markupPct: 30,
-      ownMinPrice: 50,
-      basePrice: 99,
-      minStayWeekday: 2,
-      minStayWeekend: 3,
-      gapMaxNights: 4,
-      gapMinStay: 2,
-      lastMinuteDays: 1,
-      lastMinuteMinStay: 1,
-    };
-    const after = deriveProperty(p, HQ);
-    expect(after.monthlyRevenue).toBe(before.monthlyRevenue);
-    expect(after.totalMonthlyCosts).toBe(before.totalMonthlyCosts);
-    expect(after.monthlyProfit).toBe(before.monthlyProfit);
-    expect(after.breakEvenNights).toBe(before.breakEvenNights);
-    expect(after.score).toEqual(before.score);
-  });
-});
-
-describe("Mindestpreis", () => {
-  it("ist Break-even-Preis × (1 + Aufschlag), Standard 10 %, mit beiden Bezugswerten", () => {
+describe("Mindestpreis und Basispreis", () => {
+  it("rundet Mindestpreis und Basispreis auf volle Euro auf, Basispreis aus dem ungerundeten Mindestpreis", () => {
     const p = base();
     const r = derivePricing(p, HQ);
-    expect(r.markupPct).toBe(PRICING_DEFAULTS.markupPct);
     expect(r.referenceDays).toBe(18);
-    expect(r.minPricePlanned).toBeCloseTo(r.breakEvenPlanned.price! * 1.1, 9);
-    expect(r.minPriceFull).toBeCloseTo(r.breakEvenFull.price! * 1.1, 9);
-    const custom = derivePricing(p, HQ, { markupPct: 25, referenceDays: 24 });
-    expect(custom.referenceDays).toBe(24);
-    expect(custom.minPricePlanned).toBeCloseTo(custom.breakEvenPlanned.price! * 1.25, 9);
+    const minRaw = r.breakEven.price! * (1 + PRICING_MARKUP_PCT / 100);
+    expect(r.minPrice).toBe(Math.ceil(minRaw - 1e-9));
+    expect(r.basePrice).toBe(Math.ceil(minRaw + PRICING_BASE_SURCHARGE_EUR - 1e-9));
+    expect(Number.isInteger(r.minPrice!)).toBe(true);
+    expect(Number.isInteger(r.basePrice!)).toBe(true);
+    // Basispreis liegt mindestens 40 € über dem Mindestpreis minus Rundung.
+    expect(r.basePrice! - r.minPrice!).toBeGreaterThanOrEqual(PRICING_BASE_SURCHARGE_EUR - 1);
+    expect(r.basePrice! - r.minPrice!).toBeLessThanOrEqual(PRICING_BASE_SURCHARGE_EUR);
   });
 
-  it("gibt Hinweise statt NaN bei fehlenden Eingaben, Division durch 0 und 100 % Abgaben", () => {
+  it("ceilEuro rundet auf und ignoriert Gleitkommarauschen", () => {
+    expect(ceilEuro(99.01)).toBe(100);
+    expect(ceilEuro(100)).toBe(100);
+    expect(ceilEuro(100.0000000001)).toBe(100);
+    expect(ceilEuro(0)).toBe(0);
+  });
+
+  it("ist für Kurtaxe in beiden Modi konsistent mit dem Break-even-Preis", () => {
+    const euro = base();
+    euro.costs.touristTaxPerPersonNight = 2;
+    const rEuro = derivePricing(euro, HQ);
+    expect(rEuro.minPrice).toBe(ceilEuro(rEuro.breakEven.price! * 1.1));
+
+    const pct = base();
+    pct.costs.touristTaxMode = "percentOfPrice";
+    pct.costs.touristTaxPct = 5;
+    const rPct = derivePricing(pct, HQ);
+    expect(rPct.minPrice).toBe(ceilEuro(rPct.breakEven.price! * 1.1));
+    expect(rPct.breakEven.price!).toBeGreaterThan(base().costs.coldRent! / 18 / 0.85);
+  });
+
+  it("gibt Hinweise statt NaN ohne Nächte, ohne Kosten oder bei 100 % Abgaben", () => {
     const p = base();
     p.pricing.rentedDaysPerMonth = null;
     let r = derivePricing(p, HQ);
-    expect(r.minPricePlanned).toBeNull();
-    expect(r.breakEvenPlanned.note).toBe("Nicht berechenbar: vermietete Tage fehlt.");
-    // Volle Auslastung bleibt berechenbar.
-    expect(r.minPriceFull).not.toBeNull();
+    expect(r.minPrice).toBeNull();
+    expect(r.basePrice).toBeNull();
+    expect(r.breakEven.note).toBe("Nicht berechenbar: vermietete Tage fehlt.");
 
-    r = derivePricing(p, HQ, { referenceDays: 0 });
-    expect(r.breakEvenPlanned.note).toMatch(/zwischen 1 und 30/);
+    p.pricing.rentedDaysPerMonth = 0;
+    expect(derivePricing(p, HQ).breakEven.note).toMatch(/zwischen 1 und 30/);
 
     const noFixed = emptyProperty("nur Provision");
     noFixed.pricing.rentedDaysPerMonth = 10;
     r = derivePricing(noFixed, HQ);
-    // Nur preisabhängige Kosten (Provision): Break-even-Preis ist 0, kein Fehler.
-    expect(r.breakEvenPlanned.price).toBe(0);
-    expect(r.minPricePlanned).toBe(0);
+    // Nur preisabhängige Kosten: Break-even-Preis 0, Mindestpreis 0, Basispreis 40.
+    expect(r.breakEven.price).toBe(0);
+    expect(r.minPrice).toBe(0);
+    expect(r.basePrice).toBe(PRICING_BASE_SURCHARGE_EUR);
 
     const noCosts = emptyProperty("leer");
     noCosts.pricing.rentedDaysPerMonth = 10;
     noCosts.revenueAssumptions.platformCommissionPct = null;
     r = derivePricing(noCosts, HQ);
-    // Ohne jede Kostenangabe ist kein Gewinn ableitbar: Hinweis statt 0.
-    expect(r.breakEvenPlanned.price).toBeNull();
-    expect(r.breakEvenPlanned.note).toMatch(/Kosten/);
+    expect(r.breakEven.price).toBeNull();
+    expect(r.breakEven.note).toMatch(/Kosten/);
 
     const full = base();
     full.revenueAssumptions.platformCommissionPct = 100;
     r = derivePricing(full, HQ);
-    expect(r.breakEvenPlanned.price).toBeNull();
-    expect(r.breakEvenPlanned.note).toMatch(/100 %/);
-    expect(Number.isNaN(r.minPricePlanned as number)).toBe(false);
+    expect(r.minPrice).toBeNull();
+    expect(r.breakEven.note).toMatch(/100 %/);
 
     const perBed = base();
     perBed.pricing.mode = "perBed";
     perBed.beds = null;
-    expect(derivePricing(perBed, HQ).breakEvenPlanned.note).toBe("Nicht berechenbar: Betten fehlt.");
+    expect(derivePricing(perBed, HQ).breakEven.note).toBe("Nicht berechenbar: Betten fehlt.");
+  });
+
+  it("verändert die Kennzahlen des Objekts nicht", () => {
+    const p = base();
+    const before = JSON.stringify(deriveProperty(p, HQ));
+    derivePricing(p, HQ);
+    expect(JSON.stringify(deriveProperty(p, HQ))).toBe(before);
+    expect(p.pricing.nightPrice).toBe(120);
   });
 });
