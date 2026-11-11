@@ -1,6 +1,6 @@
 # Projektstatus Hygge Homes Analyse
 
-Stand 11.11.2026, nach PR 1 bis 16. Detailplanung und Phasen in `ROADMAP.md`, Owner-Schritte in `README.md` und `docs/supabase/email-setup.md`.
+Stand 11.11.2026, nach PR 1 bis 18. Detailplanung und Phasen in `ROADMAP.md`, Owner-Schritte in `README.md` und `docs/supabase/email-setup.md`.
 
 ## 1. Ziel
 Aus dem internen Rechentool für Ferienunterkünfte wird ein SaaS mit Nutzerprofilen und Abo-Modell. Umbau in gestapelten Pull Requests, jeder Schritt mit Lint, Tests und Build.
@@ -36,6 +36,8 @@ Aus dem internen Rechentool für Ferienunterkünfte wird ein SaaS mit Nutzerprof
 | 14 | Session 3: Fahrtkosten-Hinweise mit Einzelursachen, Brutto-Hinweis, automatische Abmeldung nach 12 Stunden, Mindestpreis aus dem Break-even, Reiter „Pricing-Tool“ mit Standardwerten im Profil |
 | 15 | Sitzungsdauer zurück auf 12 Stunden (TEMP-Commit revertiert), Sitzungsprüfung jede Minute, Abmeldung ohne Browser-Rückfrage |
 | 16 | Pricing-Tool als reine Empfehlungsansicht (Mindestpreis, Basispreis, feste Einstellungen), Objektübersicht mit Kacheln und Detailansicht je Objekt (`?objekt=<id>`) |
+| 17 | PR 16 erneut gegen `main` (die erste Fassung war in den bereits gemergten Branch von PR 15 gelaufen) |
+| 18 | Rechtstexte eingesetzt: Impressum, Datenschutzerklärung, AGB mit Widerrufsbelehrung unter `#widerruf`; statische Blöcke in `lib/legal/`, Renderer `components/legal/legal-document.tsx`; Prüfhinweise `[PRÜFEN: …]` sichtbar markiert |
 
 ## 4. Architektur
 - `proxy.ts`: Sitzung aus Cookies lesen und erneuern, ohne Datenbank; öffentliche Pfade: `/login`, `/auth/*`, `/registrieren`, `/no-access`, Rechtsseiten.
@@ -86,9 +88,14 @@ Aus dem internen Rechentool für Ferienunterkünfte wird ein SaaS mit Nutzerprof
 ## 9. Offene Punkte
 - Sitzungsgrenze über `auth.sessions` bzw. Supabase-Dashboard (Time-box, eine Sitzung je Nutzer) erst mit Supabase Pro; bis dahin App-Lösung aus PR 14 (signiertes Cookie plus `last_sign_in_at`), keine Migration. Entscheidung des Owners vom 11.11.2026.
 - Der Reiter „Pricing-Tool“ erscheint vorerst nicht im Report.
+- Rechtstexte sind Entwürfe: Prüfung durch Thilo erfolgt am 11.11.2026 (Freigabe zum Einsetzen, Überarbeitung folgt), anwaltliche Prüfung der Abo- und Widerrufsklauseln vor Phase 3 offen. Prüfhinweise `[PRÜFEN: …]` bleiben bis zur Überarbeitung sichtbar markiert.
+- Zustimmung zu AGB und Datenschutz wird bei der Registrierung nicht gespeichert (nur Pflicht-Checkbox im Browser). Vorschlag ohne Schemaänderung: `acceptedTerms: true` im Request an `/api/register` serverseitig prüfen und `profiles.settings.consent = { termsVersion, privacyVersion, acceptedAt }` schreiben; nicht umgesetzt, Rückfrage offen.
+- Automatische Löschung unbestätigter Konten nach 30 Tagen offen (bestehender Cron).
+- Kontolöschung durch den Nutzer im Profil offen (derzeit per E-Mail).
 
 ## 10. Offene Owner-Schritte
 - Supabase-Auth-Schritte aus der README (Migrationen inkl. 0004, Redirect-URLs, Datenübernahme, `0003_drop_app_users`).
 - E-Mail-Versand nach `docs/supabase/email-setup.md`: Custom SMTP prüfen, Vorlagen einfügen, „Allow new users to sign up“ einschalten, Rate-Limit für E-Mails anheben, Test-Registrierung.
-- Rechtstexte für Impressum, Datenschutz und AGB einsetzen.
+- Prüfhinweise in den Rechtstexten auflösen und Texte erneut einsetzen; Verträge über Auftragsverarbeitung (Supabase, Vercel, Strato).
+- Vercel Pro vor zahlenden Kunden.
 - Probedruck des Reports, CSP im Preview prüfen, eigene Domain.

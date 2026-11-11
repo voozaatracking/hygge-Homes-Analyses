@@ -57,6 +57,7 @@ Stand PR 10 (Go-Live-Vorbereitung). Erledigt bedeutet im Code umgesetzt; Owner-S
 - [x] Onboarding: leerer Zustand mit Erklärung und „Beispielobjekt laden“, kein automatisches Anlegen.
 - [x] Hinweis-Konzept für fehlende Eingaben über das gesamte Objektformular (`lib/calculations/missing.ts`), nur Hinweise, keine Pflichtfelder.
 - [x] Rechtsseiten als Gerüst (`/impressum`, `/datenschutz`, `/agb`) mit Platzhaltern, aus dem Footer erreichbar.
+- [x] Rechtstexte eingesetzt (PR 18): Impressum, Datenschutzerklärung und AGB mit Widerrufsbelehrung (`#widerruf`) als statische Blöcke in `lib/legal/`, Renderer `components/legal/legal-document.tsx`, ohne Markdown-Bibliothek. Entwurf: Prüfung durch Thilo erfolgt am 11.11.2026 (Freigabe zum Einsetzen, Prüfhinweise `[PRÜFEN: …]` bleiben sichtbar markiert, Überarbeitung folgt); anwaltliche Prüfung der Abo- und Widerrufsklauseln vor Phase 3 offen.
 - [x] Rate-Limit für `/api/geocode`: 30 Anfragen pro Nutzer und Stunde, im Arbeitsspeicher je Serverinstanz (`lib/rate-limit.ts`).
 - [x] Selbstregistrierung mit Bestätigungsmail, Honeypot, Rate-Limit je IP, Startplan per Konstante, Kennzeichen „E-Mail bestätigt“ in der Verwaltung (PR 11).
 - [x] Bestätigungsmail erneut anfordern (`/api/register/resend`, neutrale Antwort, Rate-Limit je E-Mail und IP), Hinweis bei unbestätigtem Konto auf Registrierung und Anmeldung, Spalte „Registriert am“ in der Verwaltung (PR 12).
@@ -65,7 +66,11 @@ Stand PR 10 (Go-Live-Vorbereitung). Erledigt bedeutet im Code umgesetzt; Owner-S
 - [ ] Offen: Sitzungsgrenze über `auth.sessions` bzw. Supabase-Dashboard (Time-box, eine Sitzung je Nutzer) erst mit Supabase Pro. Bis dahin gilt die App-Lösung aus PR 14 (signiertes Cookie plus `last_sign_in_at`), keine Migration.
 - [x] Vercel-Build: Schriften Oswald und Jost selbst gehostet (`app/fonts/`, `next/font/local`) statt `next/font/google`; behebt den Turbopack-Fehler „next/font/google queries have exactly one entry“ im Production-Build (PR 13).
 - [ ] Owner: E-Mail-Versand nach `docs/supabase/email-setup.md` (Custom SMTP Strato, Vorlagen, „Allow new users to sign up“, Rate-Limit für E-Mails, Test-Registrierung).
-- [ ] Owner: Rechtstexte für Impressum, Datenschutzerklärung und AGB einsetzen (geprüfte Inhalte, keine Platzhalter).
+- [ ] Owner: Prüfhinweise in den Rechtstexten auflösen (USt-IdNr., Anschriften der Dienstleister, Fristen, Preise) und Texte über die Vorlagen erneut einsetzen; anwaltliche Prüfung der Abo- und Widerrufsklauseln vor Phase 3.
+- [ ] Owner: Vercel Pro vor zahlenden Kunden (Hobby-Tarif nur für nicht kommerzielle Nutzung).
+- [ ] Offen: Zustimmung zu AGB und Datenschutz bei der Registrierung mit Zeitpunkt und Fassung speichern (Vorschlag ohne Schemaänderung in `profiles.settings.consent`, siehe PR 18).
+- [ ] Offen: automatische Löschung unbestätigter Konten nach 30 Tagen (bestehender Cron).
+- [ ] Offen: Kontolöschung durch den Nutzer im Profil.
 - [ ] Owner: Supabase-Auth-Schritte 1 bis 7 aus der README abschließen (Migrationen inkl. 0004, SMTP, Redirect URLs, Datenübernahme, `0003_drop_app_users`).
 - [ ] Owner: Umgebungsvariablen in Vercel prüfen (`NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `CRON_SECRET`), `SITE_PASSWORD` entfernen.
 - [ ] Owner: Probedruck des Reports mit und ohne Logo; CSP im Preview mit Vercel-Toolbar prüfen (Browser-Konsole ohne CSP-Verstöße).
