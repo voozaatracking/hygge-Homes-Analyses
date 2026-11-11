@@ -1,2 +1,3 @@
 @AGENTS.md
 @ROADMAP.md
+@docs/PROJEKTSTATUS.md
