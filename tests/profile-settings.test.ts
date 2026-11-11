@@ -48,6 +48,14 @@ describe("Profil-Einstellungen (Schema)", () => {
     expect(parseProfileSettings(null)).toEqual(defaultProfileSettings());
   });
 
+  it("ignoriert den früheren Block defaults.pricing", () => {
+    const s = parseProfileSettings({
+      defaults: { pricing: { markupPct: 15, gapMaxNights: 5 } },
+    });
+    expect("pricing" in s.defaults).toBe(false);
+    expect(validateProfileSettings({ defaults: { pricing: { markupPct: 15 } } }).ok).toBe(true);
+  });
+
   it("füllt fehlende Teilfelder auf und ignoriert unbekannte", () => {
     const s = parseProfileSettings({
       defaults: { cleaning: { hourlyWage: 25 } },
@@ -106,40 +114,6 @@ describe("Neue Objekte mit Profil-Defaults", () => {
     expect(p.costs.touristTaxMode).toBe("percentOfPrice");
     expect(p.costs.touristTaxPct).toBe(5);
     expect(emptyLocation("Ort", s.defaults).changesPerWeek).toBe(3);
-  });
-
-  it("übernimmt die Pricing-Standardwerte des Profils in neue Objekte", () => {
-    const s = parseProfileSettings({
-      defaults: {
-        pricing: { markupPct: 15, gapMaxNights: 5, lastMinuteDays: 2, minStayWeekend: 2 },
-      },
-    });
-    expect(s.defaults.pricing).toEqual({
-      markupPct: 15,
-      basePrice: null,
-      minStayWeekday: null,
-      minStayWeekend: 2,
-      gapMaxNights: 5,
-      gapMinStay: 1,
-      lastMinuteDays: 2,
-      lastMinuteMinStay: 1,
-    });
-    const p = emptyProperty("Neu", s.defaults);
-    expect(p.pricingTool).toEqual({
-      referenceDays: null,
-      markupPct: 15,
-      ownMinPrice: null,
-      basePrice: null,
-      minStayWeekday: null,
-      minStayWeekend: 2,
-      gapMaxNights: 5,
-      gapMinStay: 1,
-      lastMinuteDays: 2,
-      lastMinuteMinStay: 1,
-    });
-    // Ohne Profil: Konstanten.
-    expect(emptyProperty("Neu").pricingTool.markupPct).toBe(10);
-    expect(emptyProperty("Neu").pricingTool.gapMaxNights).toBe(7);
   });
 
   it("verhält sich ohne Profil wie bisher", () => {
