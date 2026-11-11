@@ -1,6 +1,6 @@
 # Projektstatus Hygge Homes Analyse
 
-Stand 11.11.2026, nach PR 1 bis 14. Detailplanung und Phasen in `ROADMAP.md`, Owner-Schritte in `README.md` und `docs/supabase/email-setup.md`.
+Stand 11.11.2026, nach PR 1 bis 16. Detailplanung und Phasen in `ROADMAP.md`, Owner-Schritte in `README.md` und `docs/supabase/email-setup.md`.
 
 ## 1. Ziel
 Aus dem internen Rechentool für Ferienunterkünfte wird ein SaaS mit Nutzerprofilen und Abo-Modell. Umbau in gestapelten Pull Requests, jeder Schritt mit Lint, Tests und Build.
@@ -34,6 +34,8 @@ Aus dem internen Rechentool für Ferienunterkünfte wird ein SaaS mit Nutzerprof
 | 12 | Bestätigungsmail erneut anfordern, Hinweis bei unbestätigtem Konto, Spalte „Registriert am“ |
 | 13 | Vercel-Build repariert: Schriften selbst gehostet über `next/font/local` statt Google-Download zur Build-Zeit |
 | 14 | Session 3: Fahrtkosten-Hinweise mit Einzelursachen, Brutto-Hinweis, automatische Abmeldung nach 12 Stunden, Mindestpreis aus dem Break-even, Reiter „Pricing-Tool“ mit Standardwerten im Profil |
+| 15 | Sitzungsdauer zurück auf 12 Stunden (TEMP-Commit revertiert), Sitzungsprüfung jede Minute, Abmeldung ohne Browser-Rückfrage |
+| 16 | Pricing-Tool als reine Empfehlungsansicht (Mindestpreis, Basispreis, feste Einstellungen), Objektübersicht mit Kacheln und Detailansicht je Objekt (`?objekt=<id>`) |
 
 ## 4. Architektur
 - `proxy.ts`: Sitzung aus Cookies lesen und erneuern, ohne Datenbank; öffentliche Pfade: `/login`, `/auth/*`, `/registrieren`, `/no-access`, Rechtsseiten.
@@ -71,8 +73,9 @@ Aus dem internen Rechentool für Ferienunterkünfte wird ein SaaS mit Nutzerprof
 | Logo | `lib/profile/settings.ts` | PNG, JPEG, SVG als Data-URL, maximal 300 KB |
 | Automatische Abmeldung | `lib/config/session.ts` | `SESSION_MAX_HOURS` 12, absolute Höchstdauer ab Anmeldung; Anker: signiertes Cookie `hh_session_start` (session_id) und `auth.users.last_sign_in_at`, der frühere Zeitpunkt zählt |
 | Brutto-Regel | `lib/config/texts.ts` | Alle Beträge sind Bruttobeträge (inkl. Umsatzsteuer); keine Umrechnung, kein Schalter |
-| Mindestpreis | `lib/calculations/pricing.ts` | Break-even-Nachtpreis (Monatsgewinn 0 bei Bezugsauslastung) × (1 + Aufschlag), Aufschlag Standard 10 %, Vergleichswert bei 30 Nächten |
-| Pricing-Standardwerte | `lib/config/assumptions.ts` `PRICING_DEFAULTS` | Aufschlag 10 %, Lücken bis 7 Nächte mit Mindestaufenthalt 1, Last-Minute ab 4 Tagen mit Mindestaufenthalt 1; Mindestaufenthalte und Basispreis ohne Vorgabe (fachliche Werte offen). Pflegbar im Profil (`defaults.pricing`), gelten für neue Objekte |
+| Mindestpreis | `lib/calculations/pricing.ts` | Break-even-Nachtpreis (Monatsgewinn 0 bei den geplanten Nächten des Objekts) × (1 + `PRICING_MARKUP_PCT` / 100), auf volle Euro aufgerundet |
+| Basispreis | `lib/calculations/pricing.ts` | ungerundeter Mindestpreis + `PRICING_BASE_SURCHARGE_EUR`, auf volle Euro aufgerundet |
+| Pricing-Konstanten | `lib/config/assumptions.ts` | `PRICING_MARKUP_PCT` 10, `PRICING_BASE_SURCHARGE_EUR` 40, `PRICING_MIN_STAY_NIGHTS` 3, `PRICING_GAP_MAX_NIGHTS` 5, `PRICING_LAST_MINUTE_MAX_NIGHTS` 4; feste Empfehlungen, keine Eingabe je Objekt oder Profil |
 
 ## 8. Phase 3 (Abo und Payment), geplanter Ablauf
 1. Registrierung und E-Mail-Bestätigung existieren (PR 11). Startplan in `lib/config/registration.ts` auf `none` setzen.
@@ -81,7 +84,6 @@ Aus dem internen Rechentool für Ferienunterkünfte wird ein SaaS mit Nutzerprof
 4. Feature-Gating über `lib/access.ts`.
 
 ## 9. Offene Punkte
-- Fachliche Standardwerte für Mindestaufenthalt und Basispreis im Pricing-Tool.
 - Sitzungsgrenze über `auth.sessions` bzw. Supabase-Dashboard (Time-box, eine Sitzung je Nutzer) erst mit Supabase Pro; bis dahin App-Lösung aus PR 14 (signiertes Cookie plus `last_sign_in_at`), keine Migration. Entscheidung des Owners vom 11.11.2026.
 - Der Reiter „Pricing-Tool“ erscheint vorerst nicht im Report.
 

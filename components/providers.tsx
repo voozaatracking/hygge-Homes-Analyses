@@ -35,7 +35,7 @@ interface AnalysisState {
 }
 
 type Action =
-  | { type: "addObject"; defaults?: ProfileDefaults }
+  | { type: "addObject"; defaults?: ProfileDefaults; id?: string }
   | { type: "updateObject"; object: PropertyInput }
   | { type: "removeObject"; id: string }
   | { type: "duplicateObject"; id: string }
@@ -63,15 +63,15 @@ const initialState: AnalysisState = {
 
 function reducer(state: AnalysisState, action: Action): AnalysisState {
   switch (action.type) {
-    case "addObject":
+    case "addObject": {
+      const created = emptyProperty(`Objekt ${state.objects.length + 1}`, action.defaults);
+      if (action.id) created.id = action.id;
       return {
         ...state,
         dirty: true,
-        objects: [
-          ...state.objects,
-          emptyProperty(`Objekt ${state.objects.length + 1}`, action.defaults),
-        ],
+        objects: [...state.objects, created],
       };
+    }
     case "updateObject":
       return {
         ...state,

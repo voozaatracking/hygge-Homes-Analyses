@@ -20,7 +20,14 @@ import { ExcelImportDialog } from "@/components/excel-import";
  * laden, Excel importieren, Analyse als JSON sichern und wieder laden,
  * Bereich zurücksetzen, Kurzhilfe.
  */
-export function Toolbar({ mode }: { mode: AnalysisMode }) {
+export function Toolbar({
+  mode,
+  hideCreate = false,
+}: {
+  mode: AnalysisMode;
+  /** "Neues Objekt" und "Beispieldaten laden" ausblenden (Objektübersicht hat eigene Aktionen). */
+  hideCreate?: boolean;
+}) {
   const { state, dispatch, sync } = useAnalysis();
   const jsonInputRef = useRef<HTMLInputElement>(null);
 
@@ -91,25 +98,29 @@ export function Toolbar({ mode }: { mode: AnalysisMode }) {
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap gap-2">
-        <Button
-          variant="primary"
-          onClick={() =>
-            dispatch({ type: mode === "object" ? "addObject" : "addLocation" })
-          }
-        >
-          {mode === "object" ? "Neues Objekt" : "Neuer Standort"}
-        </Button>
-        <Button
-          onClick={() => {
-            if (mode === "object") {
-              dispatch({ type: "addObjects", objects: sampleProperties() });
-            } else {
-              dispatch({ type: "addLocations", locations: sampleLocations() });
-            }
-          }}
-        >
-          Beispieldaten laden
-        </Button>
+        {hideCreate ? null : (
+          <>
+            <Button
+              variant="primary"
+              onClick={() =>
+                dispatch({ type: mode === "object" ? "addObject" : "addLocation" })
+              }
+            >
+              {mode === "object" ? "Neues Objekt" : "Neuer Standort"}
+            </Button>
+            <Button
+              onClick={() => {
+                if (mode === "object") {
+                  dispatch({ type: "addObjects", objects: sampleProperties() });
+                } else {
+                  dispatch({ type: "addLocations", locations: sampleLocations() });
+                }
+              }}
+            >
+              Beispieldaten laden
+            </Button>
+          </>
+        )}
         {mode === "object" ? (
           <Button onClick={() => setExcelOpen(true)}>
             Aus Excel/CSV importieren
