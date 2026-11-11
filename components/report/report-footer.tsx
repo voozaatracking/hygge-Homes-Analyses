@@ -1,8 +1,9 @@
 import type { CompanySettings, ReportSettings } from "@/lib/profile/settings";
+import { GROSS_AMOUNTS_NOTE } from "@/lib/config/texts";
 
 /**
- * Fuß des gebrandeten Reports: Kontakt, Registerangaben, Datum, Hinweistext.
- * Fehlende Felder werden nicht gerendert. Wiederverwendbar für die
+ * Fuß des gebrandeten Reports: Kontakt, Registerangaben, Datum, Brutto-Hinweis
+ * (immer), Hinweistext. Fehlende Felder werden nicht gerendert. Wiederverwendbar für die
  * Standortanalyse (spätere Phase).
  */
 export function ReportFooter({
@@ -20,7 +21,6 @@ export function ReportFooter({
   const showContact = report.showCompanyFooter && Boolean(contact || company.registerInfo);
   const showDisclaimer = report.showDisclaimer && report.disclaimerText.trim() !== "";
 
-  if (!showContact && !report.showDate && !showDisclaimer) return null;
 
   return (
     <footer className="report-footer">
@@ -35,6 +35,7 @@ export function ReportFooter({
       {report.showDate ? (
         <div className="report-footer-line">Erstellt am {today}</div>
       ) : null}
+      <div className="report-footer-line">{GROSS_AMOUNTS_NOTE}</div>
       {showDisclaimer ? (
         <div className="report-footer-line">{report.disclaimerText}</div>
       ) : null}

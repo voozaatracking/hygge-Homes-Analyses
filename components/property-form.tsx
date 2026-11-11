@@ -14,6 +14,7 @@ import { Button, Card, ConfirmDialog } from "@/components/ui";
 import { MetricsCard } from "@/components/metrics-card";
 import type { ProfitTone } from "@/components/property-form/types";
 import { defaultProfileSettings } from "@/lib/profile/settings";
+import { GROSS_AMOUNTS_NOTE } from "@/lib/config/texts";
 
 /** Ohne geladenes Profil (z. B. lokal ohne Supabase) gelten die Defaults. */
 const defaultProfile = { settings: defaultProfileSettings() };
@@ -183,6 +184,8 @@ export function PropertyForm({
           }
         />
       </div>
+
+      <p className="text-xs text-muted -mt-4">{GROSS_AMOUNTS_NOTE}</p>
 
       {/* Tab-Navigation für die Eingabe-Kategorien */}
       <div

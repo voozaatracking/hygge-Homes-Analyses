@@ -46,6 +46,7 @@ describe("PropertyForm rendert alle Sektionen", () => {
       ">Strom<",
       ">Reinigung<",
       "Entfernung und Fahrtkosten",
+      "Alle Beträge sind Bruttobeträge (inkl. Umsatzsteuer).",
       "Plattformprovision",
       "Wirtschaftlichkeit",
       "Marktpreis",

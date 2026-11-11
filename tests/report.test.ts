@@ -47,7 +47,9 @@ describe("Gebrandeter Report", () => {
     // Fuß enthält Datum und Hinweistext, aber keine leere Kontaktzeile.
     expect(html).toContain("Erstellt am");
     expect(html).toContain(DEFAULT_DISCLAIMER);
-    expect((html.match(/report-footer-line/g) ?? []).length).toBe(2);
+    // Datum, Brutto-Hinweis, Hinweistext
+    expect((html.match(/report-footer-line/g) ?? []).length).toBe(3);
+    expect(html).toContain("Alle Beträge sind Bruttobeträge (inkl. Umsatzsteuer).");
     // Alle Sektionen vorhanden.
     for (const id of ALL_REPORT_SECTION_IDS) {
       expect(html).toContain(`data-section="${id}"`);
@@ -97,7 +99,9 @@ describe("Gebrandeter Report", () => {
     });
     expect(html).not.toContain("<img");
     expect(html).not.toContain("Stand ");
-    expect(html).not.toContain("report-footer");
+    // Der Brutto-Hinweis bleibt auch ohne Kontakt, Datum und Hinweistext.
+    expect(html).toContain("report-footer-line");
+    expect((html.match(/report-footer-line/g) ?? []).length).toBe(1);
   });
 });
 
@@ -122,7 +126,8 @@ describe("Kopf und Fuß als eigenständige Komponenten", () => {
         report: { ...settings.report, showDate: false, showDisclaimer: false },
       })
     );
-    expect(footer).toBe("");
+    expect(footer).toContain("Alle Beträge sind Bruttobeträge");
+    expect((footer.match(/report-footer-line/g) ?? []).length).toBe(1);
   });
 });
 

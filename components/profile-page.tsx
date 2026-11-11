@@ -11,6 +11,7 @@ import {
   type ProfileSettings,
 } from "@/lib/profile/settings";
 import { REPORT_SECTIONS } from "@/lib/report/sections";
+import { GROSS_AMOUNTS_NOTE } from "@/lib/config/texts";
 import { describeAuthError, getBrowserSupabase } from "@/lib/supabase/browser";
 
 const PLAN_LABEL: Record<string, string> = {
@@ -347,7 +348,7 @@ function DefaultsSection({
   const d = settings.defaults;
   return (
     <Card>
-      <SectionTitle hint="Gilt für neue Objekte. Bestehende Objekte und importierte Dateien behalten ihre Werte; je Objekt bleibt alles editierbar.">
+      <SectionTitle hint={`Gilt für neue Objekte. Bestehende Objekte und importierte Dateien behalten ihre Werte; je Objekt bleibt alles editierbar. ${GROSS_AMOUNTS_NOTE}`}>
         Standardannahmen
       </SectionTitle>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
