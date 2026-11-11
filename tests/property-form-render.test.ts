@@ -53,6 +53,9 @@ describe("PropertyForm rendert alle Sektionen", () => {
       ">Investition<",
       "Weitere Kennzahlen",
       "Objektbewertung",
+      "Pricing-Tool",
+      "Annahmen für das Pricing-Tool",
+      "Mindestpreis für das Pricing-Tool",
     ]) {
       expect(html).toContain(text);
     }
@@ -73,8 +76,8 @@ describe("PropertyForm rendert alle Sektionen", () => {
 
   it("blendet nur den aktiven Tab ein (Grunddaten beim Start)", () => {
     const html = render();
-    // Grunddaten und Energie sichtbar, die übrigen sechs Sektionshüllen mit "hidden".
+    // Grunddaten und Energie sichtbar, die übrigen sieben Sektionshüllen mit "hidden".
     const hidden = (html.match(/<div class="hidden">/g) ?? []).length;
-    expect(hidden).toBe(6);
+    expect(hidden).toBe(7);
   });
 });

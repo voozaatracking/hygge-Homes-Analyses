@@ -75,6 +75,31 @@ describe("Break-even-Nachtpreis (Gegenprobe Gewinn = 0)", () => {
   });
 });
 
+describe("Pricing-Tool-Felder beeinflussen die Berechnung nicht", () => {
+  it("liefert identische Kennzahlen mit und ohne Pricing-Tool-Werte", () => {
+    const p = base();
+    const before = deriveProperty(p, HQ);
+    p.pricingTool = {
+      referenceDays: 25,
+      markupPct: 30,
+      ownMinPrice: 50,
+      basePrice: 99,
+      minStayWeekday: 2,
+      minStayWeekend: 3,
+      gapMaxNights: 4,
+      gapMinStay: 2,
+      lastMinuteDays: 1,
+      lastMinuteMinStay: 1,
+    };
+    const after = deriveProperty(p, HQ);
+    expect(after.monthlyRevenue).toBe(before.monthlyRevenue);
+    expect(after.totalMonthlyCosts).toBe(before.totalMonthlyCosts);
+    expect(after.monthlyProfit).toBe(before.monthlyProfit);
+    expect(after.breakEvenNights).toBe(before.breakEvenNights);
+    expect(after.score).toEqual(before.score);
+  });
+});
+
 describe("Mindestpreis", () => {
   it("ist Break-even-Preis × (1 + Aufschlag), Standard 10 %, mit beiden Bezugswerten", () => {
     const p = base();

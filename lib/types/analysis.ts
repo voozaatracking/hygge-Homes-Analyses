@@ -89,6 +89,31 @@ export interface TravelInput {
   tripsPerMonth: number | null;
 }
 
+/**
+ * Annahmen für ein externes Pricing-Tool. Reine Merkwerte: Sie fließen nicht
+ * in Umsatz, Kosten, Gewinn, Szenarien oder Bewertung ein. Einzige
+ * Berechnung ist der Mindestpreis (lib/calculations/pricing.ts), der
+ * referenceDays und markupPct nutzt. Alle Felder optional.
+ */
+export interface PricingToolInput {
+  /** Bezugsauslastung für den Mindestpreis in Nächten pro Monat; leer = geplante Auslastung. */
+  referenceDays: number | null;
+  /** Aufschlag auf den Break-even-Preis in Prozent; leer = Standard. */
+  markupPct: number | null;
+  /** Eigener Mindestpreis, optional. */
+  ownMinPrice: number | null;
+  /** Basispreis; leer = Nachtpreis des Objekts als Platzhalter. */
+  basePrice: number | null;
+  minStayWeekday: number | null;
+  minStayWeekend: number | null;
+  /** Buchungslücken: "Lücken bis ... Nächte" und Mindestaufenthalt in Lücken. */
+  gapMaxNights: number | null;
+  gapMinStay: number | null;
+  /** Last-Minute: "ab ... Tagen vor Anreise" und Mindestaufenthalt Last-Minute. */
+  lastMinuteDays: number | null;
+  lastMinuteMinStay: number | null;
+}
+
 export interface PropertyInput {
   id: string;
   name: string;
@@ -155,6 +180,8 @@ export interface PropertyInput {
   electricityAssumptions: ElectricityAssumptions;
   cleaningAssumptions: CleaningAssumptions;
   revenueAssumptions: RevenueAssumptions;
+  /** Merkwerte für das Pricing-Tool, ohne Einfluss auf die Berechnung. */
+  pricingTool: PricingToolInput;
 
   /**
    * Einmalige Startinvestition in € (Einrichtung, Kaution, Erstausstattung).

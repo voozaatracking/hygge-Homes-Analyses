@@ -28,6 +28,7 @@ import { ResultsSection } from "@/components/property-form/results-section";
 import { MarketSection } from "@/components/property-form/market-section";
 import { MetricsSection } from "@/components/property-form/metrics-section";
 import { ScoreSection } from "@/components/property-form/score-section";
+import { PricingToolSection } from "@/components/property-form/pricing-tool-section";
 
 const TABS = [
   { key: "basics", label: "Grunddaten & Energie" },
@@ -35,6 +36,7 @@ const TABS = [
   { key: "costs", label: "Kosten" },
   { key: "market", label: "Markt & Investition" },
   { key: "results", label: "Ergebnis" },
+  { key: "pricingTool", label: "Pricing-Tool" },
 ] as const;
 
 type TabKey = (typeof TABS)[number]["key"];
@@ -68,7 +70,11 @@ export function PropertyForm({
     [property, derived]
   );
   const pricing = useMemo(
-    () => derivePricing(property, deriveContext),
+    () =>
+      derivePricing(property, deriveContext, {
+        markupPct: property.pricingTool.markupPct,
+        referenceDays: property.pricingTool.referenceDays,
+      }),
     [property, deriveContext]
   );
   const travelIssues = useMemo(
@@ -231,6 +237,7 @@ export function PropertyForm({
       <MarketSection {...section} active={activeTab === "market"} />
       <MetricsSection {...section} active={activeTab === "results"} />
       <ScoreSection {...section} active={activeTab === "results"} />
+      <PricingToolSection {...section} active={activeTab === "pricingTool"} />
 
       <ConfirmDialog
         open={confirmRemove}
