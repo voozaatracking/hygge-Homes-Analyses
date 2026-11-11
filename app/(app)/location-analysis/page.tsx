@@ -6,6 +6,7 @@ import { Toolbar } from "@/components/toolbar";
 import { LocationHeader } from "@/components/location-header";
 import { ListingSection } from "@/components/listing-section";
 import { Card } from "@/components/ui";
+import { GROSS_AMOUNTS_NOTE } from "@/lib/config/texts";
 
 /**
  * Standortanalyse in der verschlankten Fassung: pro Standort nur der Name
@@ -25,6 +26,7 @@ export default function LocationAnalysisPage() {
         </h1>
         <AnalysisModeSwitch active="location" />
       </div>
+      <p className="text-xs text-muted -mt-4">{GROSS_AMOUNTS_NOTE}</p>
 
       <Toolbar mode="location" />
 

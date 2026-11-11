@@ -201,6 +201,30 @@ describe("JSON-Export und Re-Import (Testfall 18)", () => {
     expect(parsed.data!.objects[0]).toEqual(p);
   });
 
+  it("lädt ältere Dateien ohne Pricing-Tool-Felder mit Standardwerten", () => {
+    const p = emptyProperty("Altes Objekt");
+    const file = buildAnalysisFile([p], [], "object");
+    const raw = JSON.parse(JSON.stringify(file)) as {
+      objects: Record<string, unknown>[];
+    };
+    delete raw.objects[0].pricingTool;
+    const parsed = parseAnalysisFile(JSON.stringify(raw));
+    expect(parsed.ok).toBe(true);
+    expect(parsed.data!.objects[0].pricingTool).toEqual({
+      referenceDays: null,
+      markupPct: 10,
+      ownMinPrice: null,
+      basePrice: null,
+      minStayWeekday: null,
+      minStayWeekend: null,
+      gapMaxNights: 7,
+      gapMinStay: 1,
+      lastMinuteDays: 4,
+      lastMinuteMinStay: 1,
+    });
+    expect(parsed.data!.objects[0]).toEqual(p);
+  });
+
   it("lehnt ungültige Dateien mit verständlicher Fehlermeldung ab", () => {
     expect(parseAnalysisFile("kein json").ok).toBe(false);
     const invalid = parseAnalysisFile(

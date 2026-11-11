@@ -233,7 +233,10 @@ export function AnalysisProvider({ children }: { children: ReactNode }) {
 
   const deriveContext = useMemo<DeriveContext>(() => {
     const hq = profile?.settings.hq;
-    return isLatLng(hq) ? { hq: { lat: hq.lat, lng: hq.lng } } : EMPTY_CONTEXT;
+    const hqAddress = hq?.address?.trim() ? hq.address.trim() : null;
+    return isLatLng(hq)
+      ? { hq: { lat: hq.lat, lng: hq.lng }, hqAddress }
+      : { ...EMPTY_CONTEXT, hqAddress };
   }, [profile]);
 
   const value = useMemo(

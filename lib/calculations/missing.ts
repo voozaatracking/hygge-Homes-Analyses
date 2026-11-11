@@ -1,5 +1,9 @@
 import type { PropertyInput } from "@/lib/types/analysis";
-import type { DerivedProperty } from "@/lib/calculations/property-calculations";
+import type {
+  DeriveContext,
+  DerivedProperty,
+} from "@/lib/calculations/property-calculations";
+import { isLatLng } from "@/lib/geo/distance";
 
 /**
  * Hinweise für nicht berechenbare Kennzahlen, nach dem Muster der Kurtaxe
@@ -144,4 +148,103 @@ export function describeMissing(
     bedProductivity: only(derived.bedProductivity, bed),
     bedsPerRoom: only(derived.bedsPerRoom, bedsRoom),
   };
+}
+
+/**
+ * Ursachen, warum Entfernung oder Fahrtkosten nicht berechenbar sind, jede
+ * zutreffende einzeln. Rein, ohne IO; die UI rendert Text und optionalen Link.
+ */
+export type TravelIssueCode =
+  | "objectAddressMissing"
+  | "objectCoordsMissing"
+  | "hqMissing"
+  | "hqCoordsMissing"
+  | "customAddressMissing"
+  | "customCoordsMissing"
+  | "rateMissing"
+  | "priceMissing"
+  | "tripsMissing";
+
+export interface TravelIssue {
+  code: TravelIssueCode;
+  text: string;
+  /** Seiteninterner Link, z. B. zum Profil. */
+  href?: string;
+  /** true, wenn die Ursache am Feld der Ausgangsadresse angezeigt wird. */
+  atOriginField?: boolean;
+}
+
+export function describeTravelIssues(
+  input: PropertyInput,
+  context: DeriveContext
+): TravelIssue[] {
+  const issues: TravelIssue[] = [];
+  const travel = input.travel;
+  const useCustom = travel.enabled && travel.originMode === "custom";
+
+  // Objektadresse: immer relevant, weil die Entfernung zum Firmensitz immer berechnet wird.
+  if (input.address.text.trim() === "") {
+    issues.push({
+      code: "objectAddressMissing",
+      text: "Objektadresse fehlt. Bitte unter Grunddaten eintragen.",
+    });
+  } else if (!isLatLng(input.address)) {
+    issues.push({
+      code: "objectCoordsMissing",
+      text: "Koordinaten des Objekts fehlen. Bitte unter Grunddaten „Koordinaten ermitteln“ ausführen.",
+    });
+  }
+
+  if (useCustom) {
+    if (travel.customOrigin.text.trim() === "") {
+      issues.push({
+        code: "customAddressMissing",
+        text: "Ausgangsadresse fehlt. Bitte eintragen und „Koordinaten ermitteln“ ausführen.",
+        atOriginField: true,
+      });
+    } else if (!isLatLng(travel.customOrigin)) {
+      issues.push({
+        code: "customCoordsMissing",
+        text: "Koordinaten der Ausgangsadresse fehlen. Bitte „Koordinaten ermitteln“ ausführen.",
+        atOriginField: true,
+      });
+    }
+  } else {
+    const hqAddress = context.hqAddress?.trim() ?? "";
+    if (hqAddress === "" && !isLatLng(context.hq)) {
+      issues.push({
+        code: "hqMissing",
+        text: "Firmensitz fehlt. Bitte im Profil eintragen.",
+        href: "/profil",
+      });
+    } else if (!isLatLng(context.hq)) {
+      issues.push({
+        code: "hqCoordsMissing",
+        text: "Koordinaten des Firmensitzes fehlen. Bitte im Profil „Koordinaten ermitteln“ ausführen.",
+        href: "/profil",
+      });
+    }
+  }
+
+  if (travel.enabled) {
+    if (travel.costMode === "perKm") {
+      if (travel.ratePerKm == null || Number.isNaN(travel.ratePerKm)) {
+        issues.push({ code: "rateMissing", text: "Kilometersatz fehlt." });
+      }
+    } else if (travel.pricePerTrip == null || Number.isNaN(travel.pricePerTrip)) {
+      issues.push({ code: "priceMissing", text: "Fixpreis je Fahrt fehlt." });
+    }
+    const trips =
+      travel.tripsPerMonth != null
+        ? travel.tripsPerMonth
+        : input.cleaningAssumptions.changesPerMonth;
+    if (trips == null || Number.isNaN(trips)) {
+      issues.push({
+        code: "tripsMissing",
+        text: "Fahrten pro Monat fehlen (auch keine Reinigungen pro Monat hinterlegt).",
+      });
+    }
+  }
+
+  return issues;
 }

@@ -60,6 +60,9 @@ Stand PR 10 (Go-Live-Vorbereitung). Erledigt bedeutet im Code umgesetzt; Owner-S
 - [x] Rate-Limit für `/api/geocode`: 30 Anfragen pro Nutzer und Stunde, im Arbeitsspeicher je Serverinstanz (`lib/rate-limit.ts`).
 - [x] Selbstregistrierung mit Bestätigungsmail, Honeypot, Rate-Limit je IP, Startplan per Konstante, Kennzeichen „E-Mail bestätigt“ in der Verwaltung (PR 11).
 - [x] Bestätigungsmail erneut anfordern (`/api/register/resend`, neutrale Antwort, Rate-Limit je E-Mail und IP), Hinweis bei unbestätigtem Konto auf Registrierung und Anmeldung, Spalte „Registriert am“ in der Verwaltung (PR 12).
+- [x] Session 3 (PR 14): Fahrtkosten-Hinweise mit Einzelursachen und Ausgangsadresse, Brutto-Hinweis, automatische Abmeldung nach 12 Stunden (`lib/config/session.ts`, `lib/session-limit.ts`), Mindestpreis aus dem Break-even (`lib/calculations/pricing.ts`), Reiter „Pricing-Tool“ mit Standardwerten im Profil (`PRICING_DEFAULTS`).
+- [ ] Offen: fachliche Standardwerte für Mindestaufenthalt und Basispreis im Pricing-Tool (bleiben vorerst leer).
+- [ ] Offen: Sitzungsgrenze über `auth.sessions` bzw. Supabase-Dashboard (Time-box, eine Sitzung je Nutzer) erst mit Supabase Pro. Bis dahin gilt die App-Lösung aus PR 14 (signiertes Cookie plus `last_sign_in_at`), keine Migration.
 - [x] Vercel-Build: Schriften Oswald und Jost selbst gehostet (`app/fonts/`, `next/font/local`) statt `next/font/google`; behebt den Turbopack-Fehler „next/font/google queries have exactly one entry“ im Production-Build (PR 13).
 - [ ] Owner: E-Mail-Versand nach `docs/supabase/email-setup.md` (Custom SMTP Strato, Vorlagen, „Allow new users to sign up“, Rate-Limit für E-Mails, Test-Registrierung).
 - [ ] Owner: Rechtstexte für Impressum, Datenschutzerklärung und AGB einsetzen (geprüfte Inhalte, keine Platzhalter).

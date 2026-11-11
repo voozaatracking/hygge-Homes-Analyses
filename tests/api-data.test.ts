@@ -10,9 +10,10 @@ import type { ProfileRow } from "@/lib/access";
  */
 
 const state: {
-  user: { id: string; email: string } | null;
+  user: { id: string; email: string; last_sign_in_at?: string } | null;
   profile: ProfileRow | null;
-} = { user: null, profile: null };
+  signedOut: number;
+} = { user: null, profile: null, signedOut: 0 };
 
 function profile(overrides: Partial<ProfileRow> = {}): ProfileRow {
   return {
@@ -35,6 +36,10 @@ vi.mock("@/lib/supabase/server", () => ({
         data: { user: state.user },
         error: state.user ? null : { message: "keine Sitzung" },
       }),
+      signOut: async () => {
+        state.signedOut += 1;
+        return { error: null };
+      },
     },
   }),
 }));
@@ -127,6 +132,7 @@ describe("/api/data", () => {
   beforeEach(() => {
     state.user = null;
     state.profile = null;
+    state.signedOut = 0;
     db.rows.clear();
     db.writes = [];
   });
@@ -134,6 +140,25 @@ describe("/api/data", () => {
   it("antwortet ohne Sitzung mit 401", async () => {
     expect((await GET()).status).toBe(401);
     expect((await PUT(putRequest({}))).status).toBe(401);
+  });
+
+  it("antwortet nach 12 Stunden seit der Anmeldung mit 401, beendet die Sitzung und kennzeichnet den Ablauf", async () => {
+    state.profile = profile();
+    state.user = {
+      id: "auth-1",
+      email: "a@example.com",
+      last_sign_in_at: new Date(Date.now() - 13 * 60 * 60 * 1000).toISOString(),
+    };
+    const response = await GET();
+    expect(response.status).toBe(401);
+    const body = (await response.json()) as { expired?: boolean; error: string };
+    expect(body.expired).toBe(true);
+    expect(body.error).toContain("12 Stunden");
+    expect(state.signedOut).toBe(1);
+
+    // Innerhalb der Frist bleibt der Zugriff erlaubt.
+    state.user.last_sign_in_at = new Date(Date.now() - 11 * 60 * 60 * 1000).toISOString();
+    expect((await GET()).status).toBe(200);
   });
 
   it("antwortet ohne aktiven Zugang mit 403", async () => {

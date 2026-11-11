@@ -108,6 +108,40 @@ describe("Neue Objekte mit Profil-Defaults", () => {
     expect(emptyLocation("Ort", s.defaults).changesPerWeek).toBe(3);
   });
 
+  it("übernimmt die Pricing-Standardwerte des Profils in neue Objekte", () => {
+    const s = parseProfileSettings({
+      defaults: {
+        pricing: { markupPct: 15, gapMaxNights: 5, lastMinuteDays: 2, minStayWeekend: 2 },
+      },
+    });
+    expect(s.defaults.pricing).toEqual({
+      markupPct: 15,
+      basePrice: null,
+      minStayWeekday: null,
+      minStayWeekend: 2,
+      gapMaxNights: 5,
+      gapMinStay: 1,
+      lastMinuteDays: 2,
+      lastMinuteMinStay: 1,
+    });
+    const p = emptyProperty("Neu", s.defaults);
+    expect(p.pricingTool).toEqual({
+      referenceDays: null,
+      markupPct: 15,
+      ownMinPrice: null,
+      basePrice: null,
+      minStayWeekday: null,
+      minStayWeekend: 2,
+      gapMaxNights: 5,
+      gapMinStay: 1,
+      lastMinuteDays: 2,
+      lastMinuteMinStay: 1,
+    });
+    // Ohne Profil: Konstanten.
+    expect(emptyProperty("Neu").pricingTool.markupPct).toBe(10);
+    expect(emptyProperty("Neu").pricingTool.gapMaxNights).toBe(7);
+  });
+
   it("verhält sich ohne Profil wie bisher", () => {
     const p = emptyProperty("Neu");
     expect(p.electricityAssumptions).toEqual({ ...ELECTRICITY_DEFAULTS });

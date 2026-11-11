@@ -7,13 +7,15 @@ import { deriveScenarios } from "@/lib/calculations/scenarios";
 import { ReportPreview } from "@/components/report-preview";
 import { useAnalysis } from "@/components/providers";
 import { validateProperty } from "@/lib/validation/rules";
-import { describeMissing } from "@/lib/calculations/missing";
+import { describeMissing, describeTravelIssues } from "@/lib/calculations/missing";
+import { derivePricing } from "@/lib/calculations/pricing";
 import { fmtEur, fmtNum, fmtPct } from "@/lib/format";
 import { TextField } from "@/components/fields";
 import { Button, Card, ConfirmDialog } from "@/components/ui";
 import { MetricsCard } from "@/components/metrics-card";
 import type { ProfitTone } from "@/components/property-form/types";
 import { defaultProfileSettings } from "@/lib/profile/settings";
+import { GROSS_AMOUNTS_NOTE } from "@/lib/config/texts";
 
 /** Ohne geladenes Profil (z. B. lokal ohne Supabase) gelten die Defaults. */
 const defaultProfile = { settings: defaultProfileSettings() };
@@ -26,6 +28,7 @@ import { ResultsSection } from "@/components/property-form/results-section";
 import { MarketSection } from "@/components/property-form/market-section";
 import { MetricsSection } from "@/components/property-form/metrics-section";
 import { ScoreSection } from "@/components/property-form/score-section";
+import { PricingToolSection } from "@/components/property-form/pricing-tool-section";
 
 const TABS = [
   { key: "basics", label: "Grunddaten & Energie" },
@@ -33,6 +36,7 @@ const TABS = [
   { key: "costs", label: "Kosten" },
   { key: "market", label: "Markt & Investition" },
   { key: "results", label: "Ergebnis" },
+  { key: "pricingTool", label: "Pricing-Tool" },
 ] as const;
 
 type TabKey = (typeof TABS)[number]["key"];
@@ -65,6 +69,18 @@ export function PropertyForm({
     () => describeMissing(property, derived),
     [property, derived]
   );
+  const pricing = useMemo(
+    () =>
+      derivePricing(property, deriveContext, {
+        markupPct: property.pricingTool.markupPct,
+        referenceDays: property.pricingTool.referenceDays,
+      }),
+    [property, deriveContext]
+  );
+  const travelIssues = useMemo(
+    () => describeTravelIssues(property, deriveContext),
+    [property, deriveContext]
+  );
 
   const set = (updater: (draft: PropertyInput) => void) => {
     const next = structuredClone(property);
@@ -85,6 +101,9 @@ export function PropertyForm({
     derived,
     errors,
     missing,
+    travelIssues,
+    context: deriveContext,
+    pricing,
     set,
     scenarios,
     profitTone,
@@ -178,6 +197,8 @@ export function PropertyForm({
         />
       </div>
 
+      <p className="text-xs text-muted -mt-4">{GROSS_AMOUNTS_NOTE}</p>
+
       {/* Tab-Navigation für die Eingabe-Kategorien */}
       <div
         className="flex flex-wrap gap-2 border-b border-line pb-3"
@@ -216,6 +237,7 @@ export function PropertyForm({
       <MarketSection {...section} active={activeTab === "market"} />
       <MetricsSection {...section} active={activeTab === "results"} />
       <ScoreSection {...section} active={activeTab === "results"} />
+      <PricingToolSection {...section} active={activeTab === "pricingTool"} />
 
       <ConfirmDialog
         open={confirmRemove}

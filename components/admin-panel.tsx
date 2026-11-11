@@ -303,7 +303,12 @@ export function AdminPanel({ selfId }: { selfId: string }) {
                   <th className={headerCell}>Status</th>
                   <th className={headerCell}>Registriert am</th>
                   <th className={headerCell}>E-Mail bestätigt</th>
-                  <th className={headerCell}>Letzte Anmeldung</th>
+                  <th
+                    className={headerCell}
+                    title="Zeitpunkt der letzten Anmeldung mit Passwort oder Link (auth.users.last_sign_in_at). Eine laufende Sitzung verändert den Wert nicht."
+                  >
+                    Letzter Login
+                  </th>
                   <th className={headerCell}>Aktionen</th>
                 </tr>
               </thead>

@@ -11,6 +11,7 @@ import {
   type ProfileSettings,
 } from "@/lib/profile/settings";
 import { REPORT_SECTIONS } from "@/lib/report/sections";
+import { GROSS_AMOUNTS_NOTE } from "@/lib/config/texts";
 import { describeAuthError, getBrowserSupabase } from "@/lib/supabase/browser";
 
 const PLAN_LABEL: Record<string, string> = {
@@ -347,7 +348,7 @@ function DefaultsSection({
   const d = settings.defaults;
   return (
     <Card>
-      <SectionTitle hint="Gilt für neue Objekte. Bestehende Objekte und importierte Dateien behalten ihre Werte; je Objekt bleibt alles editierbar.">
+      <SectionTitle hint={`Gilt für neue Objekte. Bestehende Objekte und importierte Dateien behalten ihre Werte; je Objekt bleibt alles editierbar. ${GROSS_AMOUNTS_NOTE}`}>
         Standardannahmen
       </SectionTitle>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -411,6 +412,57 @@ function DefaultsSection({
             onChange={(v) => update((s) => (s.defaults.touristTax.perPersonNight = v))}
           />
         )}
+        <NumberField
+          label="Aufschlag auf den Break-even-Preis (Pricing-Tool)"
+          unit="%"
+          value={d.pricing.markupPct}
+          onChange={(v) => update((s) => (s.defaults.pricing.markupPct = v))}
+        />
+        <NumberField
+          label="Basispreis (Pricing-Tool)"
+          unit="€"
+          value={d.pricing.basePrice}
+          onChange={(v) => update((s) => (s.defaults.pricing.basePrice = v))}
+          help="Ohne Vorgabe; fachliche Standardwerte folgen."
+        />
+        <NumberField
+          label="Mindestaufenthalt unter der Woche (Pricing-Tool)"
+          unit="Nächte"
+          value={d.pricing.minStayWeekday}
+          onChange={(v) => update((s) => (s.defaults.pricing.minStayWeekday = v))}
+        />
+        <NumberField
+          label="Mindestaufenthalt am Wochenende (Pricing-Tool)"
+          unit="Nächte"
+          value={d.pricing.minStayWeekend}
+          onChange={(v) => update((s) => (s.defaults.pricing.minStayWeekend = v))}
+        />
+        <NumberField
+          label="Buchungslücken bis (Pricing-Tool)"
+          unit="Nächte"
+          value={d.pricing.gapMaxNights}
+          onChange={(v) => update((s) => (s.defaults.pricing.gapMaxNights = v))}
+        />
+        <NumberField
+          label="Mindestaufenthalt in Lücken (Pricing-Tool)"
+          unit="Nächte"
+          value={d.pricing.gapMinStay}
+          onChange={(v) => update((s) => (s.defaults.pricing.gapMinStay = v))}
+          help="Bei 1 ist eine einzelne Nacht buchbar."
+        />
+        <NumberField
+          label="Last-Minute ab (Pricing-Tool)"
+          unit="Tage vor Anreise"
+          value={d.pricing.lastMinuteDays}
+          onChange={(v) => update((s) => (s.defaults.pricing.lastMinuteDays = v))}
+        />
+        <NumberField
+          label="Mindestaufenthalt Last-Minute (Pricing-Tool)"
+          unit="Nächte"
+          value={d.pricing.lastMinuteMinStay}
+          onChange={(v) => update((s) => (s.defaults.pricing.lastMinuteMinStay = v))}
+          help="Bei 1 ist eine einzelne Nacht buchbar."
+        />
         <NumberField
           label="Gästewechsel (Standortanalyse)"
           unit="pro Woche"
@@ -624,7 +676,7 @@ function CompanySection({
       </div>
 
       <div className="mt-6 space-y-3">
-        <h4 className="text-sm font-medium text-ink">Firmensitz (Ausgangspunkt für Entfernungen)</h4>
+        <h4 className="text-sm font-medium text-ink">Firmensitz (Ausgangsadresse für Entfernungen)</h4>
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 items-end">
           <div className="lg:col-span-2">
             <TextField

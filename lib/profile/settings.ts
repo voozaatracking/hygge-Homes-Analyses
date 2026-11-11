@@ -3,6 +3,7 @@ import {
   CLEANING_DEFAULTS,
   ELECTRICITY_DEFAULTS,
   LISTING_DEFAULTS,
+  PRICING_DEFAULTS,
   REVENUE_DEFAULTS,
 } from "@/lib/config/assumptions";
 import { TOURIST_TAX_MODES } from "@/lib/types/analysis";
@@ -88,6 +89,19 @@ export const defaultsSchema = z
     listing: z
       .object({
         changesPerWeek: nullableNumber.default(LISTING_DEFAULTS.changesPerWeek),
+      })
+      .prefault({}),
+    /** Standardwerte für den Reiter "Pricing-Tool" neuer Objekte. */
+    pricing: z
+      .object({
+        markupPct: nullableNumber.default(PRICING_DEFAULTS.markupPct),
+        basePrice: nullableNumber.default(PRICING_DEFAULTS.basePrice),
+        minStayWeekday: nullableNumber.default(PRICING_DEFAULTS.minStayWeekday),
+        minStayWeekend: nullableNumber.default(PRICING_DEFAULTS.minStayWeekend),
+        gapMaxNights: nullableNumber.default(PRICING_DEFAULTS.gapMaxNights),
+        gapMinStay: nullableNumber.default(PRICING_DEFAULTS.gapMinStay),
+        lastMinuteDays: nullableNumber.default(PRICING_DEFAULTS.lastMinuteDays),
+        lastMinuteMinStay: nullableNumber.default(PRICING_DEFAULTS.lastMinuteMinStay),
       })
       .prefault({}),
   })

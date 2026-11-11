@@ -1,6 +1,6 @@
 # Projektstatus Hygge Homes Analyse
 
-Stand 04.11.2026, nach PR 1 bis 13. Detailplanung und Phasen in `ROADMAP.md`, Owner-Schritte in `README.md` und `docs/supabase/email-setup.md`.
+Stand 11.11.2026, nach PR 1 bis 14. Detailplanung und Phasen in `ROADMAP.md`, Owner-Schritte in `README.md` und `docs/supabase/email-setup.md`.
 
 ## 1. Ziel
 Aus dem internen Rechentool für Ferienunterkünfte wird ein SaaS mit Nutzerprofilen und Abo-Modell. Umbau in gestapelten Pull Requests, jeder Schritt mit Lint, Tests und Build.
@@ -33,6 +33,7 @@ Aus dem internen Rechentool für Ferienunterkünfte wird ein SaaS mit Nutzerprof
 | 11 | Selbstregistrierung mit Bestätigungsmail, Honeypot, Rate-Limit je IP, Startplan per Konstante, E-Mail-Vorlagen, Kennzeichen „E-Mail bestätigt“ |
 | 12 | Bestätigungsmail erneut anfordern, Hinweis bei unbestätigtem Konto, Spalte „Registriert am“ |
 | 13 | Vercel-Build repariert: Schriften selbst gehostet über `next/font/local` statt Google-Download zur Build-Zeit |
+| 14 | Session 3: Fahrtkosten-Hinweise mit Einzelursachen, Brutto-Hinweis, automatische Abmeldung nach 12 Stunden, Mindestpreis aus dem Break-even, Reiter „Pricing-Tool“ mit Standardwerten im Profil |
 
 ## 4. Architektur
 - `proxy.ts`: Sitzung aus Cookies lesen und erneuern, ohne Datenbank; öffentliche Pfade: `/login`, `/auth/*`, `/registrieren`, `/no-access`, Rechtsseiten.
@@ -68,6 +69,10 @@ Aus dem internen Rechentool für Ferienunterkünfte wird ein SaaS mit Nutzerprof
 | Passwortregel | `lib/registration.ts` | mindestens 8 Zeichen |
 | Rate-Limits | `app/api/geocode`, `app/api/register`, `app/api/register/resend` | 30 je Nutzer und Stunde; 10 je IP und Stunde; 3 je E-Mail und 10 je IP pro Stunde (In-Memory je Serverinstanz) |
 | Logo | `lib/profile/settings.ts` | PNG, JPEG, SVG als Data-URL, maximal 300 KB |
+| Automatische Abmeldung | `lib/config/session.ts` | `SESSION_MAX_HOURS` 12, absolute Höchstdauer ab Anmeldung; Anker: signiertes Cookie `hh_session_start` (session_id) und `auth.users.last_sign_in_at`, der frühere Zeitpunkt zählt |
+| Brutto-Regel | `lib/config/texts.ts` | Alle Beträge sind Bruttobeträge (inkl. Umsatzsteuer); keine Umrechnung, kein Schalter |
+| Mindestpreis | `lib/calculations/pricing.ts` | Break-even-Nachtpreis (Monatsgewinn 0 bei Bezugsauslastung) × (1 + Aufschlag), Aufschlag Standard 10 %, Vergleichswert bei 30 Nächten |
+| Pricing-Standardwerte | `lib/config/assumptions.ts` `PRICING_DEFAULTS` | Aufschlag 10 %, Lücken bis 7 Nächte mit Mindestaufenthalt 1, Last-Minute ab 4 Tagen mit Mindestaufenthalt 1; Mindestaufenthalte und Basispreis ohne Vorgabe (fachliche Werte offen). Pflegbar im Profil (`defaults.pricing`), gelten für neue Objekte |
 
 ## 8. Phase 3 (Abo und Payment), geplanter Ablauf
 1. Registrierung und E-Mail-Bestätigung existieren (PR 11). Startplan in `lib/config/registration.ts` auf `none` setzen.
@@ -75,7 +80,12 @@ Aus dem internen Rechentool für Ferienunterkünfte wird ein SaaS mit Nutzerprof
 3. Anbieter wählen (Stripe oder Mollie), Abo-Tabelle, Webhook-Route, die `profiles.plan` und `plan_valid_until` schreibt.
 4. Feature-Gating über `lib/access.ts`.
 
-## 9. Offene Owner-Schritte
+## 9. Offene Punkte
+- Fachliche Standardwerte für Mindestaufenthalt und Basispreis im Pricing-Tool.
+- Sitzungsgrenze über `auth.sessions` bzw. Supabase-Dashboard (Time-box, eine Sitzung je Nutzer) erst mit Supabase Pro; bis dahin App-Lösung aus PR 14 (signiertes Cookie plus `last_sign_in_at`), keine Migration. Entscheidung des Owners vom 11.11.2026.
+- Der Reiter „Pricing-Tool“ erscheint vorerst nicht im Report.
+
+## 10. Offene Owner-Schritte
 - Supabase-Auth-Schritte aus der README (Migrationen inkl. 0004, Redirect-URLs, Datenübernahme, `0003_drop_app_users`).
 - E-Mail-Versand nach `docs/supabase/email-setup.md`: Custom SMTP prüfen, Vorlagen einfügen, „Allow new users to sign up“ einschalten, Rate-Limit für E-Mails anheben, Test-Registrierung.
 - Rechtstexte für Impressum, Datenschutz und AGB einsetzen.
