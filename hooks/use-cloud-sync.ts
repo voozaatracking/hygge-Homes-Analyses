@@ -6,6 +6,8 @@ import { buildAnalysisFile, parseAnalysisFile } from "@/lib/io/json-file";
 import { initialSyncState, reduceSync } from "@/lib/sync";
 
 export const CLOUD_SAVE_DELAY_MS = 1200;
+/** Abstand der Sitzungsprüfung ohne Nutzeraktion (ein Aufruf von /api/me je Tab). */
+export const SESSION_CHECK_INTERVAL_MS = 60_000;
 /** Marker im Browser: Die Sitzung lief ab, während ungespeicherte Änderungen vorlagen. */
 export const PENDING_KEY_PREFIX = "hygge-analyse-pending-v1";
 
@@ -77,13 +79,20 @@ export function useCloudSync({
   const handleExpired = useCallback(() => {
     const key = autosaveKeyRef.current;
     const { objects, locations } = dataRef.current;
+    const hasUnsaved =
+      (objects.length > 0 || locations.length > 0) &&
+      serializeData(objects, locations) !== lastSyncedRef.current;
     try {
       if (key && (objects.length > 0 || locations.length > 0)) {
         window.localStorage.setItem(
           key,
           JSON.stringify(buildAnalysisFile(objects, locations, "object"))
         );
-        window.localStorage.setItem(`${PENDING_KEY_PREFIX}:${key}`, "1");
+        // Marker nur, wenn wirklich etwas ungespeichert war; sonst reicht
+        // nach der Anmeldung der normale Abgleich (Cloud gewinnt).
+        if (hasUnsaved) {
+          window.localStorage.setItem(`${PENDING_KEY_PREFIX}:${key}`, "1");
+        }
       }
     } catch {
       // Zwischenspeicher nicht verfügbar: Hinweis bleibt, Weiterleitung folgt.
@@ -205,7 +214,10 @@ export function useCloudSync({
             const hasData =
               parsed.data.objects.length > 0 ||
               parsed.data.locations.length > 0;
-            if (hasData && pendingRef.current && hasLocal) {
+            const differs =
+              serializeData(parsed.data.objects, parsed.data.locations) !==
+              serializeData(local.objects, local.locations);
+            if (hasData && pendingRef.current && hasLocal && differs) {
               // Vor der Abmeldung gab es ungespeicherte Änderungen: Der Nutzer
               // entscheidet zwischen Serverstand und lokalem Stand.
               pendingRef.current = false;
@@ -304,6 +316,30 @@ export function useCloudSync({
         message: "Cloud-Speichern fehlgeschlagen, Daten bleiben lokal.",
       });
     }
+  }, [handleExpired]);
+
+  // Sitzung regelmäßig und beim Zurückkehren in den Tab prüfen, damit der
+  // Ablauf auch ohne Eingaben oder Seitenwechsel greift (401 → Anmeldung).
+  useEffect(() => {
+    const check = async () => {
+      if (!cloudEnabledRef.current || syncStatusRef.current === "expired") return;
+      if (document.visibilityState === "hidden") return;
+      try {
+        const response = await fetch("/api/me", { cache: "no-store" });
+        if (response.status === 401) handleExpired();
+      } catch {
+        // Netzfehler: beim nächsten Intervall erneut prüfen.
+      }
+    };
+    const interval = window.setInterval(() => void check(), SESSION_CHECK_INTERVAL_MS);
+    const onVisible = () => {
+      if (document.visibilityState === "visible") void check();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      window.clearInterval(interval);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
   }, [handleExpired]);
 
   // Änderungen verzögert in die Cloud schreiben. Im Konfliktzustand pausiert.
