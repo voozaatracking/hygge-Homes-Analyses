@@ -82,7 +82,7 @@ Aus dem internen Rechentool für Ferienunterkünfte wird ein SaaS mit Nutzerprof
 
 ## 9. Offene Punkte
 - Fachliche Standardwerte für Mindestaufenthalt und Basispreis im Pricing-Tool.
-- „Eine Sitzung je Nutzer“ (gleichzeitige Anmeldungen begrenzen) für später.
+- Sitzungsgrenze über `auth.sessions` bzw. Supabase-Dashboard (Time-box, eine Sitzung je Nutzer) erst mit Supabase Pro; bis dahin App-Lösung aus PR 14 (signiertes Cookie plus `last_sign_in_at`), keine Migration. Entscheidung des Owners vom 11.11.2026.
 - Der Reiter „Pricing-Tool“ erscheint vorerst nicht im Report.
 
 ## 10. Offene Owner-Schritte
