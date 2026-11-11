@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import type { SectionProps } from "@/components/property-form/types";
 import { AddressGeocodeField } from "@/components/property-form/address-geocode-field";
 import { CheckboxField, NumberField, RadioGroup, SelectField } from "@/components/fields";
@@ -13,8 +14,10 @@ export function CostAssumptionsSection({
   errors,
   set,
   missing,
+  travelIssues,
+  context,
   profitTone,
-  }: SectionProps) {
+}: SectionProps) {
   return (
     <>
         {/* Strom */}
@@ -195,34 +198,72 @@ export function CostAssumptionsSection({
               <SourceBadge source="derived" />
             </span>
           ) : property.travel.enabled ? (
-            <span className="text-sm text-muted">noch nicht berechenbar</span>
+            <span className="text-sm text-muted">nicht berechenbar, siehe Hinweise</span>
           ) : null}
         </div>
-        <p className="text-xs text-muted">
-          Adresse und Koordinaten des Objekts unter Grunddaten pflegen
-          {property.address.text ? ` (aktuell: ${property.address.text})` : ""}.
-        </p>
-        <p className="text-sm text-ink">
-          {derived.distance.source === "hq" ? (
-            derived.distance.km != null ? (
-              <>
-                Entfernung zum Firmensitz:{" "}
-                <strong className="tabular">{fmtNum(derived.distance.km, 1)} km</strong>{" "}
-                <span className="text-muted">(geschätzt aus Luftlinie)</span>
-              </>
-            ) : (
-              <span className="text-muted">{derived.distance.note}</span>
-            )
-          ) : derived.distance.km != null ? (
-            <>
-              Entfernung zum Ausgangspunkt:{" "}
-              <strong className="tabular">{fmtNum(derived.distance.km, 1)} km</strong>{" "}
-              <span className="text-muted">(geschätzt aus Luftlinie)</span>
-            </>
-          ) : (
-            <span className="text-muted">{derived.distance.note}</span>
-          )}
-        </p>
+        {(() => {
+          const useCustom =
+            property.travel.enabled && property.travel.originMode === "custom";
+          const originText = useCustom
+            ? property.travel.customOrigin.text.trim()
+            : (context.hqAddress ?? "").trim();
+          const generalIssues = travelIssues.filter((i) => !i.atOriginField);
+          return (
+            <div className="space-y-1 text-sm text-ink">
+              <p>
+                Ausgangsadresse:{" "}
+                {originText ? (
+                  <strong>{originText}</strong>
+                ) : (
+                  <span className="text-muted">nicht hinterlegt</span>
+                )}{" "}
+                <span className="text-muted">
+                  {useCustom ? "(eigene Adresse)" : "(Firmensitz aus Profil)"}
+                </span>
+              </p>
+              <p>
+                Objektadresse:{" "}
+                {property.address.text.trim() ? (
+                  <strong>{property.address.text.trim()}</strong>
+                ) : (
+                  <span className="text-muted">nicht hinterlegt</span>
+                )}{" "}
+                <span className="text-muted">(unter Grunddaten pflegen)</span>
+              </p>
+              <p>
+                {derived.distance.km != null ? (
+                  <>
+                    Entfernung:{" "}
+                    <strong className="tabular">{fmtNum(derived.distance.km, 1)} km</strong>{" "}
+                    <span className="text-muted">(geschätzt aus Luftlinie)</span>
+                  </>
+                ) : (
+                  <span className="text-muted">Entfernung: nicht berechenbar</span>
+                )}
+              </p>
+              {generalIssues.length > 0 ? (
+                <ul className="text-xs text-muted list-disc pl-5 space-y-0.5">
+                  {generalIssues.map((issue) => (
+                    <li key={issue.code}>
+                      {issue.text}
+                      {issue.href ? (
+                        <>
+                          {" "}
+                          <Link
+                            href={issue.href}
+                            className="underline underline-offset-2 text-taupe hover:text-ink"
+                          >
+                            Zum Profil
+                          </Link>
+                        </>
+                      ) : null}
+                    </li>
+                  ))}
+                </ul>
+              ) : null}
+            </div>
+          );
+        })()}
         <CheckboxField
           label="Fahrtkosten für Reinigung einrechnen (Fixkosten, je Fahrt Hin und zurück)"
           checked={property.travel.enabled}
@@ -231,7 +272,7 @@ export function CostAssumptionsSection({
         {property.travel.enabled ? (
           <div className="space-y-3">
             <RadioGroup
-              legend="Ausgangspunkt"
+              legend="Ausgangsadresse"
               value={property.travel.originMode}
               onChange={(v) =>
                 set((d) => (d.travel.originMode = v as "hq" | "custom"))
@@ -242,12 +283,21 @@ export function CostAssumptionsSection({
               ]}
             />
             {property.travel.originMode === "custom" ? (
-              <AddressGeocodeField
-                label="Ausgangsadresse"
-                value={property.travel.customOrigin}
-                onChange={(next) => set((d) => (d.travel.customOrigin = next))}
-                placeholder="Straße Hausnummer, PLZ Ort"
-              />
+              <div className="space-y-1">
+                <AddressGeocodeField
+                  label="Eigene Ausgangsadresse"
+                  value={property.travel.customOrigin}
+                  onChange={(next) => set((d) => (d.travel.customOrigin = next))}
+                  placeholder="Straße Hausnummer, PLZ Ort"
+                />
+                {travelIssues
+                  .filter((i) => i.atOriginField)
+                  .map((issue) => (
+                    <p key={issue.code} className="text-xs text-brick">
+                      {issue.text}
+                    </p>
+                  ))}
+              </div>
             ) : null}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <SelectField

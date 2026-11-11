@@ -7,7 +7,7 @@ import { deriveScenarios } from "@/lib/calculations/scenarios";
 import { ReportPreview } from "@/components/report-preview";
 import { useAnalysis } from "@/components/providers";
 import { validateProperty } from "@/lib/validation/rules";
-import { describeMissing } from "@/lib/calculations/missing";
+import { describeMissing, describeTravelIssues } from "@/lib/calculations/missing";
 import { fmtEur, fmtNum, fmtPct } from "@/lib/format";
 import { TextField } from "@/components/fields";
 import { Button, Card, ConfirmDialog } from "@/components/ui";
@@ -65,6 +65,10 @@ export function PropertyForm({
     () => describeMissing(property, derived),
     [property, derived]
   );
+  const travelIssues = useMemo(
+    () => describeTravelIssues(property, deriveContext),
+    [property, deriveContext]
+  );
 
   const set = (updater: (draft: PropertyInput) => void) => {
     const next = structuredClone(property);
@@ -85,6 +89,8 @@ export function PropertyForm({
     derived,
     errors,
     missing,
+    travelIssues,
+    context: deriveContext,
     set,
     scenarios,
     profitTone,

@@ -190,12 +190,15 @@ export function deriveTouristTax(
  * die Koordinaten des Firmensitzes aus dem Profil (für Entfernung und Fahrtkosten).
  */
 export interface DeriveContext {
+  /** Koordinaten des Firmensitzes aus dem Profil; null, wenn nicht ermittelt. */
   hq: LatLng | null;
+  /** Adresstext des Firmensitzes aus dem Profil (für Anzeige und Hinweise). */
+  hqAddress?: string | null;
 }
 
-export const EMPTY_CONTEXT: DeriveContext = { hq: null };
+export const EMPTY_CONTEXT: DeriveContext = { hq: null, hqAddress: null };
 
-/** Entfernung des Objekts zum Ausgangspunkt (Firmensitz oder eigene Adresse). */
+/** Entfernung des Objekts zur Ausgangsadresse (Firmensitz oder eigene Adresse). */
 export interface DistanceResult {
   /** Geschätzte Fahrstrecke in km (Luftlinie × Umwegfaktor); null wenn nicht berechenbar. */
   km: number | null;
@@ -215,7 +218,7 @@ export interface TravelResult {
 }
 
 /**
- * Entfernung zum Ausgangspunkt. Zum Firmensitz immer, sobald Objekt- und
+ * Entfernung zur Ausgangsadresse. Zum Firmensitz immer, sobald Objekt- und
  * HQ-Koordinaten vorliegen; bei aktivierten Fahrtkosten mit eigener Adresse
  * zu dieser Adresse.
  */
@@ -233,7 +236,7 @@ export function deriveDistance(
   if (!isLatLng(origin)) {
     missing.push(
       useCustom
-        ? "Koordinaten des Ausgangspunkts"
+        ? "Koordinaten der Ausgangsadresse"
         : "Koordinaten des Firmensitzes (im Profil ermitteln)"
     );
   }
@@ -287,7 +290,7 @@ export function deriveTravel(
   if (distance.km == null) {
     return notApplied(
       distance.source === "custom"
-        ? "Koordinaten des Objekts oder des Ausgangspunkts fehlen"
+        ? "Koordinaten des Objekts oder der Ausgangsadresse fehlen"
         : "Koordinaten des Objekts oder des Firmensitzes fehlen"
     );
   }
@@ -314,7 +317,7 @@ export interface DerivedProperty {
   costLines: CostLine[];
   /** Kurtaxe-Ableitung inklusive Hinweis bei fehlenden Eingaben. */
   touristTax: TouristTaxResult;
-  /** Entfernung zum Ausgangspunkt (geschätzt aus Luftlinie). */
+  /** Entfernung zur Ausgangsadresse (geschätzt aus Luftlinie). */
   distance: DistanceResult;
   /** Fahrtkosten für die Reinigung inklusive Hinweis. */
   travel: TravelResult;

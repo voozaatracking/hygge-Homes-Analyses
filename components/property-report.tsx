@@ -90,7 +90,7 @@ export function PropertyReport({
                 <td>
                   {derived.distance.source === "hq"
                     ? "Entfernung zum Firmensitz"
-                    : "Entfernung zum Ausgangspunkt"}
+                    : "Entfernung zur Ausgangsadresse"}
                 </td>
                 <td>{`${fmtNum(derived.distance.km, 1)} km (geschätzt aus Luftlinie)`}</td>
                 <td>Fahrtkosten Reinigung</td>

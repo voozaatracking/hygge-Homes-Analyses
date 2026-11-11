@@ -624,7 +624,7 @@ function CompanySection({
       </div>
 
       <div className="mt-6 space-y-3">
-        <h4 className="text-sm font-medium text-ink">Firmensitz (Ausgangspunkt für Entfernungen)</h4>
+        <h4 className="text-sm font-medium text-ink">Firmensitz (Ausgangsadresse für Entfernungen)</h4>
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 items-end">
           <div className="lg:col-span-2">
             <TextField

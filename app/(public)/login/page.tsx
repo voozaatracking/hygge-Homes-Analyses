@@ -43,10 +43,16 @@ export default function LoginPage() {
       password,
     });
     if (authError) {
-      setError(describeAuthError(authError.message));
-      setUnconfirmed(isEmailNotConfirmed(authError.message));
-      setPending(false);
-      return;
+      // Vereinzelt meldet der Client einen Fehler, obwohl die Anmeldung
+      // serverseitig gelungen ist (z. B. Abbruch nach dem Setzen der Cookies).
+      // Dann nicht "fehlgeschlagen" zeigen, sondern mit der Sitzung weitergehen.
+      const { data } = await supabase.auth.getSession();
+      if (!data.session) {
+        setError(describeAuthError(authError.message));
+        setUnconfirmed(isEmailNotConfirmed(authError.message));
+        setPending(false);
+        return;
+      }
     }
 
     const from = new URLSearchParams(window.location.search).get("from");
