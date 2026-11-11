@@ -4,6 +4,7 @@ import type { SectionProps } from "@/components/property-form/types";
 import { Notice, SectionTitle } from "@/components/ui";
 import { MetricsCard } from "@/components/metrics-card";
 import { fmtEur, fmtNum } from "@/lib/format";
+import { PRICING_MARKUP_PCT } from "@/lib/config/assumptions";
 
 export function ResultsSection({
   derived,
@@ -56,38 +57,18 @@ export function ResultsSection({
         />
       </div>
 
-      {/* Mindestpreis für das Pricing-Tool: Break-even-Preis zuzüglich Aufschlag */}
-      <div className="mt-4 border border-line rounded-xl p-4 bg-card-soft/40 space-y-2">
-        <h4 className="text-sm font-medium text-ink">
-          Mindestpreis für das Pricing-Tool (Break-even-Preis zzgl.{" "}
-          {fmtNum(pricing.markupPct, 0)} %)
-        </h4>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <MetricsCard
-            label="bei geplanter Auslastung"
-            value={fmtEur(pricing.minPricePlanned)}
-            sub={
-              pricing.breakEvenPlanned.price != null
-                ? `Break-even-Preis ${fmtEur(pricing.breakEvenPlanned.price)} bei ${fmtNum(pricing.referenceDays, 0)} Nächten/Monat`
-                : (pricing.breakEvenPlanned.note ?? undefined)
-            }
-          />
-          <MetricsCard
-            label="bei voller Auslastung"
-            value={fmtEur(pricing.minPriceFull)}
-            sub={
-              pricing.breakEvenFull.price != null
-                ? `Break-even-Preis ${fmtEur(pricing.breakEvenFull.price)} bei 30 Nächten/Monat`
-                : (pricing.breakEvenFull.note ?? undefined)
-            }
-          />
-        </div>
-        <p className="text-xs text-muted">
-          Nachtpreis in der Einheit der Preiseingabe (je Unterkunft oder je Bett).
-          Der Wert bei voller Auslastung trägt nur, wenn der Monat tatsächlich
-          ausgebucht ist; für die Planung zählt der Wert bei geplanter Auslastung.
-        </p>
-      </div>
+      <p className="mt-3 text-sm text-ink">
+        Mindestpreis für das Pricing-Tool:{" "}
+        {pricing.minPrice != null ? (
+          <strong className="tabular">{fmtEur(pricing.minPrice, 0)}</strong>
+        ) : (
+          <span className="text-muted">noch nicht berechenbar</span>
+        )}{" "}
+        <span className="text-muted">
+          (Break-even-Preis zzgl. {fmtNum(PRICING_MARKUP_PCT, 0)} %, Details im Reiter
+          „Pricing-Tool“)
+        </span>
+      </p>
 
       {scenarios ? (
         <div className="mt-4 overflow-x-auto">

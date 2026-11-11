@@ -201,27 +201,27 @@ describe("JSON-Export und Re-Import (Testfall 18)", () => {
     expect(parsed.data!.objects[0]).toEqual(p);
   });
 
-  it("lädt ältere Dateien ohne Pricing-Tool-Felder mit Standardwerten", () => {
-    const p = emptyProperty("Altes Objekt");
+  it("lädt Dateien mit den früheren Pricing-Tool-Feldern fehlerfrei und ignoriert sie", () => {
+    const p = emptyProperty("Objekt mit alten Feldern");
     const file = buildAnalysisFile([p], [], "object");
     const raw = JSON.parse(JSON.stringify(file)) as {
       objects: Record<string, unknown>[];
     };
-    delete raw.objects[0].pricingTool;
-    const parsed = parseAnalysisFile(JSON.stringify(raw));
-    expect(parsed.ok).toBe(true);
-    expect(parsed.data!.objects[0].pricingTool).toEqual({
-      referenceDays: null,
-      markupPct: 10,
-      ownMinPrice: null,
-      basePrice: null,
-      minStayWeekday: null,
-      minStayWeekend: null,
+    raw.objects[0].pricingTool = {
+      referenceDays: 20,
+      markupPct: 15,
+      ownMinPrice: 80,
+      basePrice: 120,
+      minStayWeekday: 2,
+      minStayWeekend: 3,
       gapMaxNights: 7,
       gapMinStay: 1,
       lastMinuteDays: 4,
       lastMinuteMinStay: 1,
-    });
+    };
+    const parsed = parseAnalysisFile(JSON.stringify(raw));
+    expect(parsed.ok).toBe(true);
+    expect("pricingTool" in parsed.data!.objects[0]).toBe(false);
     expect(parsed.data!.objects[0]).toEqual(p);
   });
 

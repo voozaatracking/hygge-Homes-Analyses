@@ -413,57 +413,6 @@ function DefaultsSection({
           />
         )}
         <NumberField
-          label="Aufschlag auf den Break-even-Preis (Pricing-Tool)"
-          unit="%"
-          value={d.pricing.markupPct}
-          onChange={(v) => update((s) => (s.defaults.pricing.markupPct = v))}
-        />
-        <NumberField
-          label="Basispreis (Pricing-Tool)"
-          unit="€"
-          value={d.pricing.basePrice}
-          onChange={(v) => update((s) => (s.defaults.pricing.basePrice = v))}
-          help="Ohne Vorgabe; fachliche Standardwerte folgen."
-        />
-        <NumberField
-          label="Mindestaufenthalt unter der Woche (Pricing-Tool)"
-          unit="Nächte"
-          value={d.pricing.minStayWeekday}
-          onChange={(v) => update((s) => (s.defaults.pricing.minStayWeekday = v))}
-        />
-        <NumberField
-          label="Mindestaufenthalt am Wochenende (Pricing-Tool)"
-          unit="Nächte"
-          value={d.pricing.minStayWeekend}
-          onChange={(v) => update((s) => (s.defaults.pricing.minStayWeekend = v))}
-        />
-        <NumberField
-          label="Buchungslücken bis (Pricing-Tool)"
-          unit="Nächte"
-          value={d.pricing.gapMaxNights}
-          onChange={(v) => update((s) => (s.defaults.pricing.gapMaxNights = v))}
-        />
-        <NumberField
-          label="Mindestaufenthalt in Lücken (Pricing-Tool)"
-          unit="Nächte"
-          value={d.pricing.gapMinStay}
-          onChange={(v) => update((s) => (s.defaults.pricing.gapMinStay = v))}
-          help="Bei 1 ist eine einzelne Nacht buchbar."
-        />
-        <NumberField
-          label="Last-Minute ab (Pricing-Tool)"
-          unit="Tage vor Anreise"
-          value={d.pricing.lastMinuteDays}
-          onChange={(v) => update((s) => (s.defaults.pricing.lastMinuteDays = v))}
-        />
-        <NumberField
-          label="Mindestaufenthalt Last-Minute (Pricing-Tool)"
-          unit="Nächte"
-          value={d.pricing.lastMinuteMinStay}
-          onChange={(v) => update((s) => (s.defaults.pricing.lastMinuteMinStay = v))}
-          help="Bei 1 ist eine einzelne Nacht buchbar."
-        />
-        <NumberField
           label="Gästewechsel (Standortanalyse)"
           unit="pro Woche"
           value={d.listing.changesPerWeek}

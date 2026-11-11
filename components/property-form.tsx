@@ -70,11 +70,7 @@ export function PropertyForm({
     [property, derived]
   );
   const pricing = useMemo(
-    () =>
-      derivePricing(property, deriveContext, {
-        markupPct: property.pricingTool.markupPct,
-        referenceDays: property.pricingTool.referenceDays,
-      }),
+    () => derivePricing(property, deriveContext),
     [property, deriveContext]
   );
   const travelIssues = useMemo(
