@@ -4,6 +4,7 @@ import type { ScenarioResult } from "@/lib/calculations/scenarios";
 import type { FieldErrors } from "@/lib/validation/rules";
 import type { MissingNotes, TravelIssue } from "@/lib/calculations/missing";
 import type { DeriveContext } from "@/lib/calculations/property-calculations";
+import type { PricingResult } from "@/lib/calculations/pricing";
 
 /** Tonalität der Gewinn-Kennzahlen, aus dem Monatsgewinn abgeleitet. */
 export type ProfitTone = "neutral" | "positive" | "negative";
@@ -23,6 +24,8 @@ export interface SectionProps {
   travelIssues: TravelIssue[];
   /** Ableitungskontext (Firmensitz) für Anzeigen. */
   context: DeriveContext;
+  /** Break-even-Nachtpreis und Mindestpreis für das Pricing-Tool. */
+  pricing: PricingResult;
   set: (updater: (draft: PropertyInput) => void) => void;
   scenarios: ScenarioResult[] | null;
   profitTone: ProfitTone;

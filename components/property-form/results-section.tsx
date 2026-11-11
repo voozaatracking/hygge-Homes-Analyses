@@ -8,6 +8,7 @@ import { fmtEur, fmtNum } from "@/lib/format";
 export function ResultsSection({
   derived,
   missing,
+  pricing,
   scenarios,
   active,
 }: SectionProps) {
@@ -53,6 +54,39 @@ export function ResultsSection({
               : (missing.payback ?? "Dafür werden eine Startinvestition (Tab 'Markt & Investition') und ein positiver Monatsgewinn benötigt.")
           }
         />
+      </div>
+
+      {/* Mindestpreis für das Pricing-Tool: Break-even-Preis zuzüglich Aufschlag */}
+      <div className="mt-4 border border-line rounded-xl p-4 bg-card-soft/40 space-y-2">
+        <h4 className="text-sm font-medium text-ink">
+          Mindestpreis für das Pricing-Tool (Break-even-Preis zzgl.{" "}
+          {fmtNum(pricing.markupPct, 0)} %)
+        </h4>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <MetricsCard
+            label="bei geplanter Auslastung"
+            value={fmtEur(pricing.minPricePlanned)}
+            sub={
+              pricing.breakEvenPlanned.price != null
+                ? `Break-even-Preis ${fmtEur(pricing.breakEvenPlanned.price)} bei ${fmtNum(pricing.referenceDays, 0)} Nächten/Monat`
+                : (pricing.breakEvenPlanned.note ?? undefined)
+            }
+          />
+          <MetricsCard
+            label="bei voller Auslastung"
+            value={fmtEur(pricing.minPriceFull)}
+            sub={
+              pricing.breakEvenFull.price != null
+                ? `Break-even-Preis ${fmtEur(pricing.breakEvenFull.price)} bei 30 Nächten/Monat`
+                : (pricing.breakEvenFull.note ?? undefined)
+            }
+          />
+        </div>
+        <p className="text-xs text-muted">
+          Nachtpreis in der Einheit der Preiseingabe (je Unterkunft oder je Bett).
+          Der Wert bei voller Auslastung trägt nur, wenn der Monat tatsächlich
+          ausgebucht ist; für die Planung zählt der Wert bei geplanter Auslastung.
+        </p>
       </div>
 
       {scenarios ? (

@@ -8,6 +8,7 @@ import { ReportPreview } from "@/components/report-preview";
 import { useAnalysis } from "@/components/providers";
 import { validateProperty } from "@/lib/validation/rules";
 import { describeMissing, describeTravelIssues } from "@/lib/calculations/missing";
+import { derivePricing } from "@/lib/calculations/pricing";
 import { fmtEur, fmtNum, fmtPct } from "@/lib/format";
 import { TextField } from "@/components/fields";
 import { Button, Card, ConfirmDialog } from "@/components/ui";
@@ -66,6 +67,10 @@ export function PropertyForm({
     () => describeMissing(property, derived),
     [property, derived]
   );
+  const pricing = useMemo(
+    () => derivePricing(property, deriveContext),
+    [property, deriveContext]
+  );
   const travelIssues = useMemo(
     () => describeTravelIssues(property, deriveContext),
     [property, deriveContext]
@@ -92,6 +97,7 @@ export function PropertyForm({
     missing,
     travelIssues,
     context: deriveContext,
+    pricing,
     set,
     scenarios,
     profitTone,
