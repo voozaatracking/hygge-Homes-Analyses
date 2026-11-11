@@ -3,6 +3,7 @@
 import { useEffect, type RefObject } from "react";
 import type { LocationInput, PropertyInput } from "@/lib/types/analysis";
 import { buildAnalysisFile } from "@/lib/io/json-file";
+import { isUnloadGuardSuppressed } from "@/lib/unload-guard";
 
 export const AUTOSAVE_KEY = "hygge-analyse-autosave-v1";
 export const AUTOSAVE_DELAY_MS = 800;
@@ -43,6 +44,7 @@ export function useAutosave(
   // Schutz vor Datenverlust: Browser-Warnung bei ungespeicherten Änderungen.
   useEffect(() => {
     const handler = (event: BeforeUnloadEvent) => {
+      if (isUnloadGuardSuppressed()) return;
       if (dirty && (objects.length > 0 || locations.length > 0)) {
         event.preventDefault();
       }

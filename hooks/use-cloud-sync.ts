@@ -4,6 +4,7 @@ import { useCallback, useEffect, useReducer, useRef, type RefObject } from "reac
 import type { LocationInput, PropertyInput } from "@/lib/types/analysis";
 import { buildAnalysisFile, parseAnalysisFile } from "@/lib/io/json-file";
 import { initialSyncState, reduceSync } from "@/lib/sync";
+import { suppressUnloadGuard } from "@/lib/unload-guard";
 
 export const CLOUD_SAVE_DELAY_MS = 1200;
 /** Abstand der Sitzungsprüfung ohne Nutzeraktion (ein Aufruf von /api/me je Tab). */
@@ -98,6 +99,9 @@ export function useCloudSync({
       // Zwischenspeicher nicht verfügbar: Hinweis bleibt, Weiterleitung folgt.
     }
     dispatchSync({ type: "expired" });
+    // Der Stand ist gesichert: keine Browser-Rückfrage "Seite verlassen?"
+    // (Safari zeigt sie sonst und blockiert die Weiterleitung zur Anmeldung).
+    suppressUnloadGuard();
     const from = window.location.pathname + window.location.search;
     const url = new URL("/login", window.location.origin);
     url.searchParams.set("reason", "expired");
